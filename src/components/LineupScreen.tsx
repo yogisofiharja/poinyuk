@@ -1,0 +1,434 @@
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { LineupResult, TeamASide } from '../appTypes';
+import { MatchMode } from '../scoring';
+import { Button, Card, DecorativeBackdrop } from './ui';
+
+export type { LineupResult };
+
+type LineupScreenProps = {
+  players: string[];
+  mode: MatchMode;
+  initialTeamASide: TeamASide;
+  playerPlayCounts: Record<string, number>;
+  onConfirm: (result: LineupResult) => void;
+  onBack: () => void;
+};
+
+const LEFT_COLORS = { bg: '#fff7ed', border: '#f97316', text: '#c2410c', badge: '#f97316' };
+const RIGHT_COLORS = { bg: '#fff1f2', border: '#fb7185', text: '#be185d', badge: '#fb7185' };
+
+export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts, onConfirm, onBack }: LineupScreenProps) {
+  const perTeam = mode === 'double' ? 2 : 1;
+  const maxAssigned = perTeam * 2;
+
+  const [assignedOrder, setAssignedOrder] = useState<string[]>([]);
+  const [sideSwapped, setSideSwapped] = useState(initialTeamASide === 'right');
+  const [firstServerName, setFirstServerName] = useState<string | null>(null);
+  const [isRandomizing, setIsRandomizing] = useState(false);
+  const [animatedServer, setAnimatedServer] = useState<string | null>(null);
+  const [isSwapping, setIsSwapping] = useState(false);
+
+  const randInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const randTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const leftCardAnim = useRef(new Animated.Value(0)).current;
+  const rightCardAnim = useRef(new Animated.Value(0)).current;
+  const cardWidthRef = useRef(0);
+
+  const isFull = assignedOrder.length === maxAssigned;
+
+  // Left team fills first, right fills next.
+  const leftAssigned = assignedOrder.slice(0, perTeam);
+  const rightAssigned = assignedOrder.slice(perTeam, maxAssigned);
+  const allAssigned = [...leftAssigned, ...rightAssigned];
+
+  // Logical team A is on the left side by default; swap reverses which side is "A".
+  const teamANames = sideSwapped ? rightAssigned : leftAssigned;
+  const teamBNames = sideSwapped ? leftAssigned : rightAssigned;
+
+  useEffect(() => {
+    if (firstServerName && !allAssigned.includes(firstServerName)) {
+      setFirstServerName(null);
+    }
+  }, [allAssigned.join(','), firstServerName]);
+
+  useEffect(() => {
+    return () => {
+      if (randInterval.current) clearInterval(randInterval.current);
+      if (randTimeout.current) clearTimeout(randTimeout.current);
+    };
+  }, []);
+
+  function handlePlayerTap(name: string) {
+    if (assignedOrder.includes(name)) {
+      setAssignedOrder((prev) => prev.filter((p) => p !== name));
+      return;
+    }
+    if (isFull) return;
+    setAssignedOrder((prev) => [...prev, name]);
+  }
+
+  function handleSwap() {
+    if (isSwapping) return;
+    setIsSwapping(true);
+    const w = cardWidthRef.current + 12; // card width + gap
+    Animated.parallel([
+      Animated.timing(leftCardAnim, { toValue: w, duration: 300, useNativeDriver: true }),
+      Animated.timing(rightCardAnim, { toValue: -w, duration: 300, useNativeDriver: true }),
+    ]).start(() => {
+      setSideSwapped((v) => !v);
+      leftCardAnim.setValue(0);
+      rightCardAnim.setValue(0);
+      setIsSwapping(false);
+    });
+  }
+
+  function handleRandomServer() {
+    if (!isFull || isRandomizing) return;
+    setIsRandomizing(true);
+    let cursor = 0;
+    randInterval.current = setInterval(() => {
+      setAnimatedServer(allAssigned[cursor % allAssigned.length]);
+      cursor++;
+    }, 90);
+    randTimeout.current = setTimeout(() => {
+      if (randInterval.current) clearInterval(randInterval.current);
+      const winner = allAssigned[Math.floor(Math.random() * allAssigned.length)];
+      setAnimatedServer(winner);
+      setFirstServerName(winner);
+      setIsRandomizing(false);
+      setTimeout(() => setAnimatedServer(null), 400);
+    }, 1200);
+  }
+
+  function handleConfirm() {
+    if (!isFull || !firstServerName) return;
+    onConfirm({
+      teamANames,
+      teamBNames,
+      firstServerName,
+      teamASide: sideSwapped ? 'right' : 'left',
+    });
+  }
+
+  const effectiveServer = animatedServer ?? firstServerName;
+  const canConfirm = isFull && Boolean(firstServerName);
+
+  const slotHint = !isFull ? `Pilih ${maxAssigned - assignedOrder.length} pemain lagi` : null;
+
+  // Returns which side ('left' | 'right' | null) this player is on.
+  function getPlayerSide(name: string): 'left' | 'right' | null {
+    const idx = assignedOrder.indexOf(name);
+    if (idx === -1) return null;
+    return idx < perTeam ? 'left' : 'right';
+  }
+
+  const leftLabel = sideSwapped ? 'Tim B' : 'Tim A';
+  const rightLabel = sideSwapped ? 'Tim A' : 'Tim B';
+  const sortedPlayers = [...players].sort((a, b) => {
+    const diff = (playerPlayCounts[a] ?? 0) - (playerPlayCounts[b] ?? 0);
+    if (diff !== 0) return diff;
+    return a.localeCompare(b);
+  });
+
+  return (
+    <DecorativeBackdrop>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <Card tone="accent" style={styles.heroCard}>
+            <Text style={styles.heroEyebrow}>PoinYuk</Text>
+            <Text style={styles.heroTitle}>Pilih Pemain</Text>
+          </Card>
+
+          {/* All players pool */}
+          <Card>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Semua Pemain</Text>
+              {slotHint && <Text style={styles.slotHint}>{slotHint}</Text>}
+            </View>
+            <View style={styles.playerGrid}>
+              {sortedPlayers.map((name) => {
+                const side = getPlayerSide(name);
+                const colors = side === 'left' ? LEFT_COLORS : side === 'right' ? RIGHT_COLORS : null;
+                const playCount = playerPlayCounts[name];
+                return (
+                  <Pressable
+                    key={name}
+                    onPress={() => handlePlayerTap(name)}
+                    style={({ pressed }) => [
+                      styles.playerPill,
+                      colors
+                        ? { backgroundColor: colors.bg, borderColor: colors.border }
+                        : styles.playerPillDefault,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={[styles.playerPillName, colors && { color: colors.text }]}>{name}</Text>
+                    {playCount > 0 && (
+                      <View style={[styles.playCountBadge, colors && { backgroundColor: colors.badge }]}>
+                        <Text style={styles.playCountBadgeText}>{playCount}x</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Card>
+
+          {/* Team slot cards side by side */}
+          <View style={styles.teamRow}>
+            <Animated.View
+              style={[styles.slotCardWrapper, { transform: [{ translateX: leftCardAnim }], zIndex: isSwapping ? 2 : 1 }]}
+              onLayout={(e) => { cardWidthRef.current = e.nativeEvent.layout.width; }}
+            >
+              <TeamSlot
+                label={leftLabel}
+                players={leftAssigned}
+                emptySlots={perTeam - leftAssigned.length}
+                colors={LEFT_COLORS}
+              />
+            </Animated.View>
+            <Animated.View
+              style={[styles.slotCardWrapper, { transform: [{ translateX: rightCardAnim }], zIndex: 1 }]}
+            >
+              <TeamSlot
+                label={rightLabel}
+                players={rightAssigned}
+                emptySlots={perTeam - rightAssigned.length}
+                colors={RIGHT_COLORS}
+              />
+            </Animated.View>
+          </View>
+
+          {/* Switch side */}
+          <Pressable
+            style={({ pressed }) => [styles.switchSideBtn, pressed && styles.pressed]}
+            onPress={handleSwap}
+            disabled={isSwapping}
+          >
+            <Text style={styles.switchSideText}>⇄  Tukar Tempat</Text>
+          </Pressable>
+
+          {/* Server selection shown only once all slots are filled */}
+          {isFull && (
+            <Card>
+              <Text style={styles.sectionTitle}>Server Pertama</Text>
+              <View style={styles.serverRow}>
+                {allAssigned.map((name) => {
+                  const isSelected = effectiveServer === name;
+                  return (
+                    <Pressable
+                      key={name}
+                      onPress={() => setFirstServerName(name)}
+                      style={[styles.serverPill, isSelected && styles.serverPillActive]}
+                    >
+                      <Text style={[styles.serverPillText, isSelected && styles.serverPillTextActive]}>
+                        {name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Button
+                label={isRandomizing ? 'Mengacak...' : 'Acak Server 🎲'}
+                variant="secondary"
+                onPress={handleRandomServer}
+                disabled={isRandomizing}
+              />
+            </Card>
+          )}
+
+          {/* Actions */}
+          <View style={styles.actionRow}>
+            <View style={styles.flexButton}>
+              <Button label="← Kembali" onPress={onBack} variant="outline" />
+            </View>
+            <View style={styles.flexButton}>
+              <Button label="Lanjut →" onPress={handleConfirm} disabled={!canConfirm} />
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </DecorativeBackdrop>
+  );
+}
+
+function TeamSlot({
+  label,
+  players,
+  emptySlots,
+  colors,
+}: {
+  label: string;
+  players: string[];
+  emptySlots: number;
+  colors: { bg: string; border: string; text: string };
+}) {
+  return (
+    <View style={[styles.slotCard, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+      <Text style={[styles.slotCardLabel, { color: colors.text }]}>{label}</Text>
+      {players.map((name) => (
+        <Text key={name} style={[styles.slotPlayer, { color: colors.text }]}>
+          {name}
+        </Text>
+      ))}
+      {Array.from({ length: emptySlots }).map((_, i) => (
+        <Text key={`empty-${i}`} style={styles.slotEmpty}>
+          —
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1 },
+  container: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 32, gap: 14 },
+
+  heroCard: { gap: 6, paddingVertical: 14 },
+  heroEyebrow: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    color: '#b45309',
+    textTransform: 'uppercase',
+  },
+  heroTitle: { fontSize: 26, fontWeight: '900', color: '#111827' },
+  heroSub: { fontSize: 13, lineHeight: 20, color: '#4b5563' },
+
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '900', color: '#111827' },
+  sectionSub: { fontSize: 12, color: '#64748b', marginTop: 1 },
+  slotHint: { fontSize: 12, fontWeight: '700', color: '#b45309' },
+  slotHintGreen: { color: '#047857' },
+
+  playerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  playerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1.5,
+  },
+  playerPillDefault: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  playerPillName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  playCountBadge: {
+    minWidth: 28,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: '#cbd5e1',
+    alignItems: 'center',
+  },
+  playCountBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+
+  teamRow: { flexDirection: 'row', gap: 12, overflow: 'visible' },
+  slotCardWrapper: { flex: 1 },
+  slotCard: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 2,
+    padding: 14,
+    gap: 8,
+    alignItems: 'center',
+    minHeight: 90,
+  },
+  slotCardLabel: {
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  slotPlayer: {
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  slotEmpty: {
+    fontSize: 20,
+    color: '#cbd5e1',
+    textAlign: 'center',
+  },
+
+  switchSideBtn: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  switchSideText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1d4ed8',
+  },
+
+  serverRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginVertical: 8,
+  },
+  serverPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  serverPillActive: {
+    backgroundColor: '#1d4ed8',
+    borderColor: '#1d4ed8',
+  },
+  serverPillText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  serverPillTextActive: {
+    color: '#ffffff',
+  },
+
+  actionRow: { flexDirection: 'row', gap: 10 },
+  flexButton: { flex: 1 },
+
+  pressed: { opacity: 0.75 },
+});

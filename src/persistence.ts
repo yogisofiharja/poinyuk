@@ -1,0 +1,118 @@
+import { PersistedAppState, SetupForm, TeamASide } from './appTypes';
+
+export const STORAGE_KEY = 'poinyuk.weekend.v1';
+
+export type StorageLike = {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+};
+
+export function parsePersistedState(raw: string | null): PersistedAppState | null {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as PersistedAppState;
+
+    if (parsed.version !== 1) {
+      return null;
+    }
+
+    if (!parsed.setup || !Array.isArray(parsed.history)) {
+      return null;
+    }
+
+    if (typeof parsed.backgroundPhotoDataUrl === 'undefined') {
+      parsed.backgroundPhotoDataUrl = null;
+    }
+
+    if (typeof parsed.teamASide === 'undefined') {
+      parsed.teamASide = 'left';
+    }
+
+    if (typeof parsed.playerPlayCounts === 'undefined' || !parsed.playerPlayCounts) {
+      parsed.playerPlayCounts = {};
+    }
+
+    parsed.setup = normalizeSetup(parsed.setup as Record<string, unknown>);
+
+    if (parsed.matchState && typeof parsed.matchState.deuceCount === 'undefined') {
+      parsed.matchState.deuceCount = 0;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeSetup(rawSetup: Record<string, unknown>): SetupForm {
+  const mode = rawSetup.mode === 'double' ? 'double' : 'single';
+  const singleDeuceSuddenDeath = Boolean(rawSetup.singleDeuceSuddenDeath);
+
+  // Current format: players is a flat string array.
+  if (Array.isArray(rawSetup.players)) {
+    return {
+      mode,
+      singleDeuceSuddenDeath,
+      players: rawSetup.players.filter((name): name is string => typeof name === 'string' && name.trim() !== ''),
+    };
+  }
+
+  // Previous format: playerPoolA / playerPoolB comma strings.
+  if (typeof rawSetup.playerPoolA === 'string' || typeof rawSetup.playerPoolB === 'string') {
+    const poolA = splitPool(String(rawSetup.playerPoolA ?? ''));
+    const poolB = splitPool(String(rawSetup.playerPoolB ?? ''));
+    return { mode, singleDeuceSuddenDeath, players: [...poolA, ...poolB] };
+  }
+
+  // Oldest format: playerA1 / playerA2 / playerB1 / playerB2 individual fields.
+  const players = [rawSetup.playerA1, rawSetup.playerA2, rawSetup.playerB1, rawSetup.playerB2]
+    .filter((name): name is string => typeof name === 'string' && name.trim() !== '')
+    .map((name) => name.trim());
+
+  return { mode, singleDeuceSuddenDeath, players };
+}
+
+function splitPool(raw: string): string[] {
+  return raw.split(',').map((name) => name.trim()).filter((name) => Boolean(name));
+}
+
+export function parseTeamASide(raw: unknown): TeamASide {
+  return raw === 'right' ? 'right' : 'left';
+}
+
+export function loadPersistedStateFromStorage(
+  storage: StorageLike,
+  key: string = STORAGE_KEY,
+): PersistedAppState | null {
+  const raw = storage.getItem(key);
+  return parsePersistedState(raw);
+}
+
+export function savePersistedStateToStorage(
+  storage: StorageLike,
+  state: PersistedAppState,
+  key: string = STORAGE_KEY,
+): boolean {
+  try {
+    storage.setItem(key, JSON.stringify(state));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearPersistedStateFromStorage(
+  storage: StorageLike,
+  key: string = STORAGE_KEY,
+): boolean {
+  try {
+    storage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
