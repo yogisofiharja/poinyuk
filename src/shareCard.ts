@@ -75,33 +75,106 @@ export async function composeShareCardDataUrlWeb(input: ShareCardInput): Promise
 
   ctx.textAlign = 'center';
 
+  const visualGap = 148;
+  const matchupFont = "italic 800 46px 'Trebuchet MS', 'Arial Black', sans-serif";
+  const scoreFont = "italic 900 170px 'Arial Black', Impact, sans-serif";
+  const brandFont = "500 34px 'Trebuchet MS', Arial, sans-serif";
+
+  const matchupMetrics = measureTextMetrics(ctx, matchupFont, input.matchup || 'A');
+  const scoreMetrics = measureTextMetrics(ctx, scoreFont, input.gameScore || '0');
+  const brandMetrics = measureTextMetrics(ctx, brandFont, 'PoinYuk');
+
+  const brandY = canvas.height - 42 - 148;
+  const brandTopY = brandY - brandMetrics.ascent;
+  const scoreBottomY = brandTopY - visualGap;
+  const scoreY = scoreBottomY + scoreMetrics.descent;
+  const scoreTopY = scoreY - scoreMetrics.ascent;
+  const matchupBottomY = scoreTopY - visualGap;
+  const matchupY = matchupBottomY + matchupMetrics.descent;
+  const titleY = matchupY - 80;
+
   if (input.title) {
     ctx.fillStyle = '#f8fafc';
     ctx.font = "700 52px 'Trebuchet MS', 'Arial Black', sans-serif";
-    ctx.fillText(input.title, canvas.width / 2, textBaseY - 130);
+    ctx.fillText(input.title, canvas.width / 2, titleY);
   }
 
+  const vsSep = ' vs ';
+  const vsIdx = input.matchup.indexOf(vsSep);
+  const playerA = vsIdx >= 0 ? input.matchup.slice(0, vsIdx) : input.matchup;
+  const playerB = vsIdx >= 0 ? input.matchup.slice(vsIdx + vsSep.length) : '';
+
+  const playerANames = playerA.split(' / ');
+  const playerBNames = playerB.split(' / ');
+  const lineHeight = 58;
+  const maxLines = Math.max(playerANames.length, playerBNames.length);
+  const groupHeight = (maxLines - 1) * lineHeight;
+  const groupTopY = matchupY - groupHeight / 2;
+
+  const centerX = canvas.width / 2;
+  const vsHalfWidth = 90;
+  const dividerLeft = centerX - vsHalfWidth;
+  const dividerRight = centerX + vsHalfWidth;
+  const namePadding = 7;
+  const dividerTop = groupTopY - matchupMetrics.ascent - 8;
+  const dividerBottom = groupTopY + groupHeight + matchupMetrics.descent + 8;
+
+
+
   ctx.fillStyle = '#e2e8f0';
-  ctx.font = "800 46px 'Trebuchet MS', 'Arial Black', sans-serif";
-  ctx.fillText(input.matchup, canvas.width / 2, input.title ? textBaseY - 25 : textBaseY - 85);
+  ctx.font = "italic 800 52px 'Trebuchet MS', 'Arial Black', sans-serif";
+  ctx.textAlign = 'center';
+  ctx.fillText('VS', centerX, matchupY);
 
-  const scoreY = input.title ? textBaseY + 180 : textBaseY + 120;
-  const brandY = scoreY + 78;
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = matchupFont;
+  ctx.textAlign = 'right';
+  playerANames.forEach((name, i) => {
+    ctx.fillText(name.toUpperCase(), dividerLeft - namePadding, groupTopY + i * lineHeight);
+  });
+  ctx.textAlign = 'left';
+  playerBNames.forEach((name, i) => {
+    ctx.fillText(name.toUpperCase(), dividerRight + namePadding, groupTopY + i * lineHeight);
+  });
 
-  ctx.fillStyle = '#ffffff';
-  ctx.font = "900 170px 'Arial Black', Impact, sans-serif";
+  ctx.textAlign = 'center';
+  ctx.font = scoreFont;
   ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
   ctx.shadowBlur = 20;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 8;
-  ctx.fillText(input.gameScore, canvas.width / 2, scoreY);
+
+  const scoreParts = input.gameScore.split(' - ');
+  const leftScore = scoreParts[0] ?? '';
+  const rightScore = scoreParts[1] ?? '';
+  const scoreSep = ' - ';
+  const leftNum = parseInt(leftScore, 10);
+  const rightNum = parseInt(rightScore, 10);
+  const leftWins = leftNum > rightNum;
+  const rightWins = rightNum > leftNum;
+
+  ctx.textAlign = 'left';
+  const leftScoreWidth = ctx.measureText(leftScore).width;
+  const scoreSepWidth = ctx.measureText(scoreSep).width;
+  const rightScoreWidth = ctx.measureText(rightScore).width;
+  const scoreTotalWidth = leftScoreWidth + scoreSepWidth + rightScoreWidth;
+  const scoreStartX = centerX - scoreTotalWidth / 2;
+
+  ctx.fillStyle = leftWins ? '#ffffff' : 'rgba(255,255,255,0.38)';
+  ctx.fillText(leftScore, scoreStartX, scoreY);
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillText(scoreSep, scoreStartX + leftScoreWidth, scoreY);
+  ctx.fillStyle = rightWins ? '#ffffff' : 'rgba(255,255,255,0.38)';
+  ctx.fillText(rightScore, scoreStartX + leftScoreWidth + scoreSepWidth, scoreY);
+
   ctx.shadowColor = 'transparent';
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 
   ctx.fillStyle = '#cbd5e1';
-  ctx.font = "500 34px 'Trebuchet MS', Arial, sans-serif";
+  ctx.font = brandFont;
+  ctx.textAlign = 'center';
   ctx.fillText('PoinYuk', canvas.width / 2, brandY);
   ctx.textAlign = 'start';
 
@@ -250,4 +323,23 @@ function roundRect(
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   const response = await fetch(dataUrl);
   return response.blob();
+}
+
+function measureTextMetrics(ctx: CanvasRenderingContext2D, font: string, sampleText: string) {
+  ctx.save();
+  ctx.font = font;
+  const metrics = ctx.measureText(sampleText || '0');
+  ctx.restore();
+
+  const fontSize = getFontSizeFromCssFont(font);
+  return {
+    ascent: metrics.actualBoundingBoxAscent || fontSize * 0.8,
+    descent: metrics.actualBoundingBoxDescent || fontSize * 0.2,
+  };
+}
+
+function getFontSizeFromCssFont(font: string): number {
+  const match = font.match(/(\d+(?:\.\d+)?)px/);
+  if (!match) return 16;
+  return Number(match[1]);
 }

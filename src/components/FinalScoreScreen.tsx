@@ -1,8 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
-import { Image, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TeamNames } from '../appTypes';
 import { getPointLabel, MatchState } from '../scoring';
 import { Button, Card, DecorativeBackdrop } from './ui';
+import { ShareCardModal } from './ShareCardModal';
 
 type FinalScoreScreenProps = {
   matchState: MatchState;
@@ -10,7 +11,6 @@ type FinalScoreScreenProps = {
   sharePreviewDataUrl: string | null;
   onShare: () => void;
   onShareFromPreview: () => void;
-  onDownloadPreview: () => void;
   onCloseSharePreview: () => void;
   onChangeBackground: (source: 'gallery' | 'camera') => void;
   onBackToSetup: () => void;
@@ -24,7 +24,6 @@ export function FinalScoreScreen(props: FinalScoreScreenProps) {
     sharePreviewDataUrl,
     onShare,
     onShareFromPreview,
-    onDownloadPreview,
     onCloseSharePreview,
     onChangeBackground,
     onBackToSetup,
@@ -64,25 +63,8 @@ export function FinalScoreScreen(props: FinalScoreScreenProps) {
           </Card>
 
           <Card>
-            <Button label="Share Hasil Match" onPress={onShare} size="lg" />
+            <Button label="Share" onPress={onShare} size="lg" />
           </Card>
-
-          {sharePreviewDataUrl && (
-            <Card>
-              <Text style={styles.previewTitle}>Preview Share Card</Text>
-              <Image source={{ uri: sharePreviewDataUrl }} style={styles.previewImage} />
-              <Text style={styles.changeLabel}>Ganti background:</Text>
-              <View style={styles.actionRow}>
-                <Button label="🖼  Galeri" onPress={() => onChangeBackground('gallery')} variant="secondary" style={styles.flexButton} />
-                <Button label="📷  Kamera" onPress={() => onChangeBackground('camera')} variant="secondary" style={styles.flexButton} />
-              </View>
-              <View style={styles.actionRow}>
-                <Button label="Share Sekarang" onPress={onShareFromPreview} style={styles.flexButton} />
-                <Button label="Download" onPress={onDownloadPreview} variant="outline" style={styles.flexButton} />
-              </View>
-              <Button label="Tutup Preview" onPress={onCloseSharePreview} variant="ghost" />
-            </Card>
-          )}
 
           <Button label="Match Baru" onPress={onBackToSetup} variant="outline" />
 
@@ -90,6 +72,14 @@ export function FinalScoreScreen(props: FinalScoreScreenProps) {
             <Text style={styles.endSessionText}>End Session</Text>
           </Pressable>
         </ScrollView>
+
+        <ShareCardModal
+          visible={!!sharePreviewDataUrl}
+          imageDataUrl={sharePreviewDataUrl}
+          onShare={onShareFromPreview}
+          onChangeBackground={onChangeBackground}
+          onClose={onCloseSharePreview}
+        />
       </SafeAreaView>
     </DecorativeBackdrop>
   );
@@ -172,23 +162,6 @@ const styles = StyleSheet.create({
   },
   flexButton: {
     flex: 1,
-  },
-  previewTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1f2937',
-  },
-  changeLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748b',
-    marginTop: 4,
-  },
-  previewImage: {
-    width: '100%',
-    aspectRatio: 9 / 16,
-    borderRadius: 10,
-    backgroundColor: '#e2e8f0',
   },
   endSessionBtn: {
     alignItems: 'center',

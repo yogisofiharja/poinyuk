@@ -170,10 +170,19 @@ const buttonTextStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
+  backdrop: Platform.select({
+    web: {
+      flex: 1,
+      backgroundColor: palette.background,
+      width: '100vw' as any,
+      maxWidth: '100vw' as any,
+      overflow: 'hidden' as any,
+    },
+    default: {
+      flex: 1,
+      backgroundColor: palette.background,
+    },
+  }) as any,
   blobA: {
     position: 'absolute',
     width: 220,

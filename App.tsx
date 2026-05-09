@@ -183,8 +183,10 @@ export default function App() {
 
     if (Platform.OS === 'web') {
       try {
+        // Always reset to default background whenever Share is tapped.
+        setBackgroundPhotoDataUrl(null);
         const cardDataUrl = await composeShareCardDataUrlWeb({
-          backgroundDataUrl: backgroundPhotoDataUrl ?? undefined,
+          backgroundDataUrl: undefined,
           title: '',
           matchup: `${teamNames.A} vs ${teamNames.B}`,
           gameScore: `${matchState.games.A} - ${matchState.games.B}`,
@@ -207,15 +209,14 @@ export default function App() {
   async function handleShareFromPreview() {
     if (!sharePreviewDataUrl) return;
     const imageShared = await shareImageWeb(sharePreviewDataUrl, sharePreviewText);
-    if (imageShared) return;
+    if (imageShared) {
+      // Close the modal after successful share
+      setSharePreviewDataUrl(null);
+      return;
+    }
+    // Fallback: download image if share API is not available
     downloadDataUrlWeb(sharePreviewDataUrl, 'poinyuk-score.png');
-    if (navigator.clipboard) await navigator.clipboard.writeText(sharePreviewText);
-    showMessage('Gambar score card sudah didownload. Caption hasil match juga di-copy.');
-  }
-
-  function handleDownloadPreview() {
-    if (!sharePreviewDataUrl) return;
-    downloadDataUrlWeb(sharePreviewDataUrl, 'poinyuk-score.png');
+    showMessage('Image downloaded.');
   }
 
   function closeSharePreview() {
@@ -305,7 +306,6 @@ export default function App() {
         sharePreviewDataUrl={sharePreviewDataUrl}
         onShare={handleShare}
         onShareFromPreview={handleShareFromPreview}
-        onDownloadPreview={handleDownloadPreview}
         onCloseSharePreview={closeSharePreview}
         onChangeBackground={handleChangeBackground}
         onBackToSetup={handleBackToSetup}
