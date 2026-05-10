@@ -26,6 +26,39 @@ When Expo opens, press `w` if needed to open browser.
 npm test
 ```
 
+## Deploy To Vercel
+
+This app is deployed as a static Expo web export.
+
+### 1) Build locally (optional check)
+
+```bash
+npm run build:web
+```
+
+This generates the production web files in `dist/`.
+
+### 2) Deploy with Vercel CLI
+
+```bash
+npm i -g vercel
+vercel
+```
+
+For production deployment:
+
+```bash
+vercel --prod
+```
+
+### 3) Or deploy from GitHub
+
+1. Push this repo to GitHub.
+2. In Vercel, click **Add New Project** and import the repo.
+3. Keep defaults (the included `vercel.json` already sets build/output):
+	- Build command: `npm run build:web`
+	- Output directory: `dist`
+
 ## App Flow
 
 ```
