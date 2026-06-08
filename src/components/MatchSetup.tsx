@@ -19,11 +19,14 @@ type MatchSetupProps = {
   onUpdateSetup: (updates: Partial<SetupForm>) => void;
   onStartMatch: () => void;
   onClearSavedState: () => void;
+  onJoinSession: (code: string) => void;
 };
 
-export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedState }: MatchSetupProps) {
+export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedState, onJoinSession }: MatchSetupProps) {
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<TextInput>(null);
+  const [joinCode, setJoinCode] = useState('');
+  const [showJoin, setShowJoin] = useState(false);
 
   const requiredPlayers = setup.mode === 'double' ? 4 : 2;
   const canStart = setup.players.length >= requiredPlayers;
@@ -137,6 +140,33 @@ export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedSta
 
           <Button label="Pilih Pemain & Mulai Match" onPress={onStartMatch} size="lg" disabled={!canStart} />
           <Button label="Sesi Baru" onPress={onClearSavedState} variant="outline" />
+
+          <Pressable onPress={() => setShowJoin(v => !v)} style={styles.joinToggle}>
+            <Text style={styles.joinToggleText}>Punya kode sesi? Gabung sebagai wasit</Text>
+          </Pressable>
+
+          {showJoin && (
+            <Card>
+              <Text style={styles.sectionTitle}>Gabung Sesi</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[styles.textInput, styles.codeInput]}
+                  value={joinCode}
+                  onChangeText={(v) => setJoinCode(v.toUpperCase())}
+                  placeholder="Masukkan kode sesi..."
+                  placeholderTextColor="#9ca3af"
+                  autoCapitalize="characters"
+                  maxLength={5}
+                />
+                <Pressable
+                  style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                  onPress={() => { if (joinCode.length === 5) onJoinSession(joinCode); }}
+                >
+                  <Ionicons name="enter-outline" size={22} color="#ffffff" />
+                </Pressable>
+              </View>
+            </Card>
+          )}
         </ScrollView>
       </SafeAreaView>
     </DecorativeBackdrop>
@@ -279,5 +309,21 @@ const styles = StyleSheet.create({
   switchDesc: {
     fontSize: 12,
     color: palette.mutedForeground,
+  },
+  joinToggle: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  joinToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textDecorationLine: 'underline',
+  },
+  codeInput: {
+    letterSpacing: 4,
+    fontWeight: '900',
+    fontSize: 18,
+    textTransform: 'uppercase',
   },
 });

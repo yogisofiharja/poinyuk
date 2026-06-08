@@ -58,7 +58,13 @@ A web-first tennis scoring app for small clubs, built with React Native + Expo +
 
 ### Deferred / Post-MVP 🔲
 
-- [ ] **Multi-device session sharing**: match owner generates a short code; umpire enters it on their own device to get full scoring access. Both devices sync in real-time via Firebase Realtime Database. Local-only sessions (no code) continue to work as today.
+- [ ] **Multi-device session sharing** — implementation steps:
+  - [ ] Step 1: Create Firebase project, enable Realtime Database, copy config to `.env`
+  - [ ] Step 2: `npm install firebase`, create `src/firebase.ts` to initialize app and export db reference
+  - [ ] Step 3: Create `src/sessionSync.ts` — `generateCode()`, `pushState(code, state)`, `subscribeToSession(code, callback)`, `unsubscribe()`
+  - [ ] Step 4: Wire into `App.tsx` — push state to Firebase on every `setMatchState`; on app load detect `?code=` URL param and auto-join that session
+  - [ ] Step 5: `npm install qrcode` — show QR code on match screen encoding `https://poinyuk.vercel.app/?code=XK4R2`; umpire scans → browser opens app → auto-joins. Show text code below as fallback.
+  - [ ] Step 6: "Gabung Sesi" manual code input on setup screen for edge cases where camera is unavailable
 - [ ] Native Android / iOS packaging and platform-specific sharing.
 - [ ] Match history log across sessions.
 - [ ] Club / player profiles.
