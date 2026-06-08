@@ -134,4 +134,33 @@ describe('scoring engine', () => {
     expect(state.winner).toBeNull();
     expect(state.isEnded).toBe(true);
   });
+
+  it('increments set, records completed set scores, and resets games when a team wins 6 games', () => {
+    let state = createInitialState(createSingleConfig('standard'));
+
+    // B wins 3 games, then A wins 6 to take the set 6-3.
+    for (let i = 0; i < 3; i++) state = applyPoints(state, ['B', 'B', 'B', 'B']);
+    for (let i = 0; i < 6; i++) state = applyPoints(state, ['A', 'A', 'A', 'A']);
+
+    expect(state.sets.A).toBe(1);
+    expect(state.sets.B).toBe(0);
+    expect(state.games).toEqual({ A: 0, B: 0 });
+    expect(state.completedSets).toEqual([{ A: 6, B: 3 }]);
+  });
+
+  it('prefers set count over game count when deciding manual winner', () => {
+    let state = createInitialState(createSingleConfig('standard'));
+
+    // Team B wins 1 set (6 games).
+    for (let i = 0; i < 6; i++) {
+      state = applyPoints(state, ['B', 'B', 'B', 'B']);
+    }
+    // Team A leads in games in the new set.
+    state = applyPoints(state, ['A', 'A', 'A', 'A']);
+    state = applyPoints(state, ['A', 'A', 'A', 'A']);
+
+    state = endMatchNow(state);
+
+    expect(state.winner).toBe('B');
+  });
 });

@@ -1,55 +1,66 @@
 ## PoinYuk — App Plan
 
-A web-first badminton / tennis scoring app for small clubs, built with React Native + Expo + TypeScript targeting Expo Web. Same codebase can later be packaged for Android and iOS.
+A web-first tennis scoring app for small clubs, built with React Native + Expo + TypeScript targeting Expo Web. Same codebase can later be packaged for Android and iOS.
 
 ---
 
 ### Shipped ✅
 
 #### Phase 1 — Core Setup
-- Expo TypeScript project running on Expo Web.
-- Single / Double mode selection.
-- Player name entry (minimum 2 for single, 4 for double).
+- [x] Expo TypeScript project running on Expo Web.
+- [x] Single / Double mode selection.
+- [x] Player name entry (minimum 2 for single, 4 for double).
 
 #### Phase 2 — Match Rules & Scoring
-- Pure scoring engine (`src/scoring.ts`) with configurable deuce:
-  - Standard deuce, or
-  - Single deuce then sudden death.
-- Service indicator logic (current server tracked throughout match).
-- Tap-to-add-point per team card.
-- Undo with full state rollback across edge transitions.
-- End match anytime (leader wins; tied = draw).
+- [x] Pure scoring engine (`src/scoring.ts`) with configurable deuce:
+  - [x] Standard deuce, or
+  - [x] Single deuce then sudden death.
+- [x] Service indicator logic (current server tracked throughout match).
+- [x] Tap-to-add-point per team card.
+- [x] Undo with full state rollback across edge transitions.
+- [x] End match anytime (leader wins; tied = draw).
 
 #### Phase 3 — UI / UX Overhaul
-- shadcn-inspired custom component layer (`src/components/ui.tsx`) — bold orange / blue / yellow palette.
-- TV-style score banner with game + point columns.
-- Side-by-side tap cards (always row layout, no stacking) with square card layout.
-- Server highlighted with green dot on serving player's name (banner + tap card); no text label.
-- Serving team card gets blue border highlight.
-- Match controls refined: centered Undo (with confirmation) and End Match pinned to bottom.
+- [x] shadcn-inspired custom component layer (`src/components/ui.tsx`) — bold orange / blue / yellow palette.
+- [x] TV-style score banner with game + point columns.
+- [x] Side-by-side tap cards (always row layout, no stacking) with square card layout.
+- [x] Server highlighted with green dot on serving player's name (banner + tap card); no text label.
+- [x] Serving team card gets blue border highlight.
+- [x] Match controls refined: centered Undo and End Match pinned to bottom.
 
 #### Phase 4 — Club Session Flow
-- **Setup screen** (`MatchSetup.tsx`): shared player pool, one-by-one Enter-to-add input, mode pill, deuce toggle.
-- **Lineup screen** (`LineupScreen.tsx`): tap players in sequence → first N go to left card, next N to right card. Animated card swap with `⇄ Tukar Tempat`. Server picker with random-spinner animation.
-- Player rotation helpers: play-count tracking per player, shown as compact `x` badges, and player list sorted by lowest play-count first.
-- **Match screen** → **Final screen** flow, screen state persisted to `localStorage`.
-- Backward-compat migration in `persistence.ts` handles all historical save formats.
+- [x] **Setup screen** (`MatchSetup.tsx`): shared player pool, one-by-one Enter-to-add input, mode pill, deuce toggle.
+- [x] **Lineup screen** (`LineupScreen.tsx`): tap players in sequence → first N go to left card, next N to right card. Animated card swap with `⇄ Tukar Tempat`. Server picker with random-spinner animation.
+- [x] Player rotation helpers: play-count tracking per player, shown as compact `x` badges, and player list sorted by lowest play-count first.
+- [x] **Match screen** → **Final screen** flow, screen state persisted to `localStorage`.
+- [x] Backward-compat migration in `persistence.ts` handles all historical save formats.
 
 #### Phase 5 — Final Screen & Share
-- Winner row highlighted (name bold, score orange); loser row muted.
-- "Share" button immediately generates a preview card — default background is a programmatic dark-gradient badminton court design (no photo required).
-- Gallery / Camera buttons inside preview to swap background photo.
-- Share card simplified: matchup + final game score only (no winner/point text), black fade overlay, stronger bottom emphasis, and bottom-centered score layout.
-- Uploaded share background now resets each new match.
-- Setup action uses `Start New Session`; Final screen bottom action uses `End Session` (both confirmed before clearing data).
-- "Match Baru" goes straight to lineup selection, preserving the player pool.
+- [x] Winner row highlighted (name bold, score orange); loser row muted.
+- [x] "Share" button immediately generates a preview card — default background is a programmatic dark-gradient court design (no photo required).
+- [x] Gallery / Camera buttons inside preview to swap background photo.
+- [x] Share card simplified: matchup + final game score only (no winner/point text), black fade overlay, stronger bottom emphasis, and bottom-centered score layout.
+- [x] Uploaded share background now resets each new match.
+- [x] Setup action uses `Sesi Baru`; Final screen bottom action uses `Akhiri Sesi` (confirmed before clearing data). No alert after clearing.
+- [x] "Match Baru" goes straight to lineup selection, preserving the player pool.
+
+#### Phase 6 — Set Scoring, TV Scoreboard & UX Refinements
+- [x] **Set scoring**: reaching 6 games increments the set counter, resets games to 0-0, and records the completed set's game scores in `completedSets`. `endMatchNow()` checks sets → games → points for winner.
+- [x] **TV-style final scoreboard** (`FinalScoreScreen`): set total column (orange for winner) + vertical divider + per-set game scores. Ongoing partial set shown in yellow.
+- [x] **Share card adapts**: headline score is set score when sets have been played, game score otherwise. Per-set breakdown (e.g. `6–3  ·  4–6`) rendered below the main score.
+- [x] **Lineup side swap revised**: `Tukar Tempat` physically swaps players in `assignedOrder`. Static "KIRI" / "KANAN" labels in their own row never animate; only the player name row animates. Server picker order is derived from stable `sortedPlayers` (unaffected by swaps).
+- [x] **Score banner** (`MatchScreen`): SET column added alongside GAME and POIN.
+- [x] **Consistent branding**: all screens open with a `Card tone="accent"` showing only "PoinYuk" — no content in the hero card.
+- [x] **Language**: all UI copy in Bahasa Indonesia throughout.
+- [x] **UX cleanup**: undo confirmation removed; all share-flow alerts removed; mobile Safari camera GC bug fixed (file input appended to `document.body`); share card gradient starts from vertical midpoint.
 
 ---
 
 ### Deferred / Post-MVP 🔲
 
-1. Native Android / iOS packaging and platform-specific sharing.
-2. Match history log across sessions.
-3. Club / player profiles.
-4. Advanced tournament formats (round-robin, elimination bracket).
-5. Offline-first sync / cloud backup.
+- [ ] **Multi-device session sharing**: match owner generates a short code; umpire enters it on their own device to get full scoring access. Both devices sync in real-time via Firebase Realtime Database. Local-only sessions (no code) continue to work as today.
+- [ ] Native Android / iOS packaging and platform-specific sharing.
+- [ ] Match history log across sessions.
+- [ ] Club / player profiles.
+- [ ] Advanced tournament formats (round-robin, elimination bracket).
+- [ ] Offline-first sync / cloud backup.

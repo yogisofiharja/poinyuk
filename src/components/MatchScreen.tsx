@@ -34,16 +34,7 @@ export function MatchScreen(props: MatchScreenProps) {
 
   function handleUndo() {
     if (!hasUndo) return;
-    if (Platform.OS === 'web') {
-      if (!window.confirm('Batalkan poin terakhir?')) return;
-      onUndo();
-      return;
-    }
-
-    Alert.alert('Undo Poin', 'Batalkan poin terakhir?', [
-      { text: 'Tidak', style: 'cancel' },
-      { text: 'Undo', onPress: onUndo },
-    ]);
+    onUndo();
   }
 
   const leftTeam: Team = teamASide === 'left' ? 'A' : 'B';
@@ -54,10 +45,15 @@ export function MatchScreen(props: MatchScreenProps) {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="dark" />
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.matchContainer}>
+          <Card tone="accent" style={styles.brandingCard}>
+            <Text style={styles.brandingTitle}>PoinYuk</Text>
+          </Card>
+
           <TVScoreBanner
-            title="Live Match"
             leftName={teamNames[leftTeam]}
             rightName={teamNames[rightTeam]}
+            leftSet={matchState.sets[leftTeam]}
+            rightSet={matchState.sets[rightTeam]}
             leftGame={matchState.games[leftTeam]}
             rightGame={matchState.games[rightTeam]}
             leftPoint={getPointLabel(matchState, leftTeam)}
@@ -92,7 +88,7 @@ export function MatchScreen(props: MatchScreenProps) {
         </ScrollView>
 
         <View style={styles.bottomActionWrap}>
-          <Button label="End Match" onPress={handleEndMatch} style={styles.endMatchButton} />
+          <Button label="Akhiri Match" onPress={handleEndMatch} style={styles.endMatchButton} />
         </View>
       </SafeAreaView>
     </DecorativeBackdrop>
@@ -100,9 +96,10 @@ export function MatchScreen(props: MatchScreenProps) {
 }
 
 function TVScoreBanner(props: {
-  title: string;
   leftName: string;
   rightName: string;
+  leftSet: number;
+  rightSet: number;
   leftGame: number;
   rightGame: number;
   leftPoint: string;
@@ -112,24 +109,29 @@ function TVScoreBanner(props: {
 }) {
   return (
     <Card tone="accent" style={styles.bannerCard}>
-      <Text style={styles.bannerTitle}>{props.title}</Text>
-
       <View style={styles.bannerTable}>
-        <BannerRow name={props.leftName} game={props.leftGame} point={props.leftPoint} isServing={props.leftIsServing} />
+        <View style={styles.bannerHeaderRow}>
+          <View style={styles.bannerNameCell} />
+          <Text style={[styles.bannerColLabel, { width: 34 }]}>SET</Text>
+          <Text style={[styles.bannerColLabel, { width: 34 }]}>GAME</Text>
+          <Text style={[styles.bannerColLabel, { width: 52 }]}>POIN</Text>
+        </View>
+        <BannerRow name={props.leftName} set={props.leftSet} game={props.leftGame} point={props.leftPoint} isServing={props.leftIsServing} />
         <View style={styles.bannerDivider} />
-        <BannerRow name={props.rightName} game={props.rightGame} point={props.rightPoint} isServing={props.rightIsServing} />
+        <BannerRow name={props.rightName} set={props.rightSet} game={props.rightGame} point={props.rightPoint} isServing={props.rightIsServing} />
       </View>
     </Card>
   );
 }
 
-function BannerRow(props: { name: string; game: number; point: string; isServing: boolean }) {
+function BannerRow(props: { name: string; set: number; game: number; point: string; isServing: boolean }) {
   return (
     <View style={styles.bannerTeamRow}>
       <View style={styles.bannerNameCell}>
         {props.isServing && <View style={styles.serveDot} />}
         <Text style={[styles.teamNameText, props.isServing && styles.teamNameServing]}>{props.name}</Text>
       </View>
+      <Text style={styles.setCell}>{props.set}</Text>
       <Text style={styles.scoreCell}>{props.game}</Text>
       <Text style={styles.pointCell}>{props.point}</Text>
     </View>
@@ -203,20 +205,32 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 12,
   },
+  brandingCard: { paddingVertical: 14 },
+  brandingTitle: { fontSize: 28, fontWeight: '900', color: '#111827' },
   bannerCard: {
-    gap: 10,
+    gap: 0,
     backgroundColor: '#f8f9ff',
     borderColor: '#c5d2ff',
-  },
-  bannerTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#111827',
   },
   bannerTable: {
     backgroundColor: '#0f172a',
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  bannerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingTop: 6,
+    paddingBottom: 2,
+    gap: 8,
+  },
+  bannerColLabel: {
+    textAlign: 'center',
+    fontSize: 9,
+    fontWeight: '900',
+    color: 'rgba(248,250,252,0.4)',
+    letterSpacing: 0.8,
   },
   bannerTeamRow: {
     flexDirection: 'row',
@@ -248,6 +262,13 @@ const styles = StyleSheet.create({
   bannerDivider: {
     height: 1,
     backgroundColor: '#334155',
+  },
+  setCell: {
+    width: 34,
+    textAlign: 'center',
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '900',
   },
   scoreCell: {
     width: 34,

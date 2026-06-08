@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TeamNames } from '../appTypes';
-import { getPointLabel, MatchState } from '../scoring';
+import { MatchState, Team } from '../scoring';
 import { Button, Card, DecorativeBackdrop } from './ui';
 import { ShareCardModal } from './ShareCardModal';
 
@@ -30,11 +30,11 @@ export function FinalScoreScreen(props: FinalScoreScreenProps) {
     onClearSavedState,
   } = props;
 
-  const winner = matchState.winner; // 'A' | 'B' | null
+  const winner = matchState.winner;
 
   function handleEndSession() {
     if (Platform.OS === 'web') {
-      if (!window.confirm('End session? Semua data tersimpan akan dihapus.')) return;
+      if (!window.confirm('Akhiri sesi? Semua data tersimpan akan dihapus.')) return;
     }
     onClearSavedState();
   }
@@ -45,31 +45,28 @@ export function FinalScoreScreen(props: FinalScoreScreenProps) {
         <StatusBar style="dark" />
         <ScrollView contentContainerStyle={styles.container}>
           <Card tone="accent">
-            <Text style={styles.title}>Final Score</Text>
+            <Text style={styles.title}>PoinYuk</Text>
           </Card>
 
-          <Card>
-            <ScoreRow
-              name={teamNames.A}
-              games={matchState.games.A}
-              isWinner={winner === 'A'}
-            />
-            <View style={styles.divider} />
-            <ScoreRow
-              name={teamNames.B}
-              games={matchState.games.B}
-              isWinner={winner === 'B'}
+          <Card style={styles.scoreboardCard}>
+            <TVScoreboard
+              teamAName={teamNames.A}
+              teamBName={teamNames.B}
+              sets={matchState.sets}
+              completedSets={matchState.completedSets}
+              currentGames={matchState.games}
+              winner={winner}
             />
           </Card>
 
           <Card>
-            <Button label="Share" onPress={onShare} size="lg" />
+            <Button label="Bagikan" onPress={onShare} size="lg" />
           </Card>
 
           <Button label="Match Baru" onPress={onBackToSetup} variant="outline" />
 
           <Pressable onPress={handleEndSession} style={styles.endSessionBtn}>
-            <Text style={styles.endSessionText}>End Session</Text>
+            <Text style={styles.endSessionText}>Akhiri Sesi</Text>
           </Pressable>
         </ScrollView>
 
@@ -85,29 +82,116 @@ export function FinalScoreScreen(props: FinalScoreScreenProps) {
   );
 }
 
-function ScoreRow({
+function TVScoreboard({
+  teamAName,
+  teamBName,
+  sets,
+  completedSets,
+  currentGames,
+  winner,
+}: {
+  teamAName: string;
+  teamBName: string;
+  sets: { A: number; B: number };
+  completedSets: Array<{ A: number; B: number }>;
+  currentGames: { A: number; B: number };
+  winner: Team | null;
+}) {
+  const hasOngoingGame = currentGames.A > 0 || currentGames.B > 0;
+  const showFallback = completedSets.length === 0 && !hasOngoingGame;
+  const showSetTotal = completedSets.length > 0;
+
+  return (
+    <View style={styles.scoreboard}>
+      <TVRow
+        name={teamAName}
+        team="A"
+        setTotal={sets.A}
+        completedSets={completedSets}
+        currentGames={currentGames}
+        isWinner={winner === 'A'}
+        hasOngoingGame={hasOngoingGame}
+        showFallback={showFallback}
+        showSetTotal={showSetTotal}
+      />
+      <View style={styles.scoreboardDivider} />
+      <TVRow
+        name={teamBName}
+        team="B"
+        setTotal={sets.B}
+        completedSets={completedSets}
+        currentGames={currentGames}
+        isWinner={winner === 'B'}
+        hasOngoingGame={hasOngoingGame}
+        showFallback={showFallback}
+        showSetTotal={showSetTotal}
+      />
+    </View>
+  );
+}
+
+function TVRow({
   name,
-  games,
+  team,
+  setTotal,
+  completedSets,
+  currentGames,
   isWinner,
+  hasOngoingGame,
+  showFallback,
+  showSetTotal,
 }: {
   name: string;
-  games: number;
+  team: Team;
+  setTotal: number;
+  completedSets: Array<{ A: number; B: number }>;
+  currentGames: { A: number; B: number };
   isWinner: boolean;
+  hasOngoingGame: boolean;
+  showFallback: boolean;
+  showSetTotal: boolean;
 }) {
+  const other: Team = team === 'A' ? 'B' : 'A';
+
   return (
-    <View>
-      <View style={[styles.scoreRow, isWinner && styles.scoreRowWinner]}>
-        <Text style={[styles.teamName, isWinner && styles.teamNameWinner]}>{name}</Text>
-        <Text style={[styles.scoreValue, isWinner && styles.scoreValueWinner]}>{games}</Text>
-      </View>
+    <View style={styles.tvRow}>
+      <Text style={[styles.tvName, isWinner && styles.tvNameWinner]} numberOfLines={1}>
+        {name}
+      </Text>
+
+      {showFallback && (
+        <Text style={[styles.tvScore, styles.tvScoreLost]}>0</Text>
+      )}
+
+      {showSetTotal && (
+        <>
+          <Text style={[styles.tvSetTotal, isWinner && styles.tvSetTotalWinner]}>
+            {setTotal}
+          </Text>
+          <View style={styles.tvVerticalDivider} />
+        </>
+      )}
+
+      {completedSets.map((set, i) => {
+        const wonSet = set[team] > set[other];
+        return (
+          <Text key={i} style={[styles.tvScore, wonSet ? styles.tvScoreWon : styles.tvScoreLost]}>
+            {set[team]}
+          </Text>
+        );
+      })}
+
+      {hasOngoingGame && (
+        <Text style={[styles.tvScore, styles.tvScorePartial]}>
+          {currentGames[team]}
+        </Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
+  safeArea: { flex: 1 },
   container: {
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -119,49 +203,67 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
   },
-  scoreRow: {
+  scoreboardCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  scoreboard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  scoreboardDivider: {
+    height: 1,
+    backgroundColor: '#334155',
+  },
+  tvRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     minHeight: 52,
-    borderRadius: 10,
-    paddingHorizontal: 6,
+    paddingHorizontal: 14,
+    gap: 4,
   },
-  scoreRowWinner: {
-    backgroundColor: '#fff7ed',
-  },
-  teamName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#6b7280',
-  },
-  teamNameWinner: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  scoreValue: {
-    width: 34,
+  tvSetTotal: {
+    width: 28,
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '900',
-    color: '#d1d5db',
+    color: '#475569',
   },
-  scoreValueWinner: {
+  tvSetTotalWinner: {
     color: '#f97316',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
+  tvVerticalDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: '#334155',
     marginHorizontal: 6,
   },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  flexButton: {
+  tvName: {
     flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748b',
+    marginRight: 10,
+  },
+  tvNameWinner: {
+    color: '#f8fafc',
+    fontWeight: '900',
+  },
+  tvScore: {
+    width: 36,
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  tvScoreWon: {
+    color: '#f8fafc',
+  },
+  tvScoreLost: {
+    color: '#475569',
+  },
+  tvScorePartial: {
+    color: '#fde047',
   },
   endSessionBtn: {
     alignItems: 'center',

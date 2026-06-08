@@ -53,8 +53,7 @@ export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedSta
         <StatusBar style="dark" />
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <Card tone="accent" style={styles.heroCard}>
-            <Text style={styles.appEyebrow}>PoinYuk</Text>
-            <Text style={styles.appTitle}>Who's playing today?</Text>
+            <Text style={styles.appTitle}>PoinYuk</Text>
           </Card>
 
           <Card>
@@ -101,7 +100,7 @@ export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedSta
           </Card>
 
           <Card>
-            <Text style={styles.sectionTitle}>Mode Match</Text>
+            <Text style={styles.sectionTitle}>Jenis Pertandingan</Text>
             <View style={styles.pillRow}>
               <Pill
                 label="Single  (1 vs 1)"
@@ -137,7 +136,7 @@ export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedSta
           </Card>
 
           <Button label="Pilih Pemain & Mulai Match" onPress={onStartMatch} size="lg" disabled={!canStart} />
-          <Button label="Start New Session" onPress={onClearSavedState} variant="outline" />
+          <Button label="Sesi Baru" onPress={onClearSavedState} variant="outline" />
         </ScrollView>
       </SafeAreaView>
     </DecorativeBackdrop>

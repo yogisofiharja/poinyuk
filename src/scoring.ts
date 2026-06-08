@@ -27,6 +27,11 @@ export type MatchState = {
     A: number;
     B: number;
   };
+  sets: {
+    A: number;
+    B: number;
+  };
+  completedSets: Array<{ A: number; B: number }>;
   deuceCount: number;
   currentServerPlayerId: string;
   isEnded: boolean;
@@ -44,6 +49,8 @@ export function createInitialState(config: MatchConfig): MatchState {
     config,
     points: { A: 0, B: 0 },
     games: { A: 0, B: 0 },
+    sets: { A: 0, B: 0 },
+    completedSets: [],
     deuceCount: 0,
     currentServerPlayerId,
     isEnded: false,
@@ -108,6 +115,13 @@ export function addPoint(state: MatchState, team: Team): MatchState {
   nextState.points = { A: 0, B: 0 };
   nextState.deuceCount = 0;
   nextState.currentServerPlayerId = getNextServerId(nextState);
+
+  // First to 6 games wins the set; record the final game score then reset.
+  if (nextState.games[pointWinner] >= 6) {
+    nextState.completedSets = [...nextState.completedSets, { ...nextState.games }];
+    nextState.sets[pointWinner] += 1;
+    nextState.games = { A: 0, B: 0 };
+  }
 
   return nextState;
 }
@@ -176,21 +190,11 @@ function getServiceOrder(config: MatchConfig): string[] {
 }
 
 function decideManualWinner(state: MatchState): Team | null {
-  if (state.games.A > state.games.B) {
-    return 'A';
-  }
-
-  if (state.games.B > state.games.A) {
-    return 'B';
-  }
-
-  if (state.points.A > state.points.B) {
-    return 'A';
-  }
-
-  if (state.points.B > state.points.A) {
-    return 'B';
-  }
-
+  if (state.sets.A > state.sets.B) return 'A';
+  if (state.sets.B > state.sets.A) return 'B';
+  if (state.games.A > state.games.B) return 'A';
+  if (state.games.B > state.games.A) return 'B';
+  if (state.points.A > state.points.B) return 'A';
+  if (state.points.B > state.points.A) return 'B';
   return null;
 }

@@ -42,6 +42,14 @@ export function parsePersistedState(raw: string | null): PersistedAppState | nul
       parsed.matchState.deuceCount = 0;
     }
 
+    if (parsed.matchState && typeof parsed.matchState.sets === 'undefined') {
+      parsed.matchState.sets = { A: 0, B: 0 };
+    }
+
+    if (parsed.matchState && !Array.isArray(parsed.matchState.completedSets)) {
+      parsed.matchState.completedSets = [];
+    }
+
     return parsed;
   } catch {
     return null;

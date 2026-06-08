@@ -43,9 +43,9 @@ export function ShareCardModal({
           </View>
 
           <View style={styles.actionBar}>
-            <Button label="Share" onPress={onShare} style={styles.shareBtn} />
+            <Button label="Bagikan" onPress={onShare} style={styles.shareBtn} />
             <Pressable onPress={onClose} style={styles.dismissBtn}>
-              <Text style={styles.dismissText}>Dismiss</Text>
+              <Text style={styles.dismissText}>Tutup</Text>
             </Pressable>
           </View>
         </View>

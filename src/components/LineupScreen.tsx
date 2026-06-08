@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { LineupResult, TeamASide } from '../appTypes';
+import { LineupResult } from '../appTypes';
 import { MatchMode } from '../scoring';
 import { Button, Card, DecorativeBackdrop } from './ui';
 
@@ -18,7 +18,6 @@ export type { LineupResult };
 type LineupScreenProps = {
   players: string[];
   mode: MatchMode;
-  initialTeamASide: TeamASide;
   playerPlayCounts: Record<string, number>;
   onConfirm: (result: LineupResult) => void;
   onBack: () => void;
@@ -27,12 +26,11 @@ type LineupScreenProps = {
 const LEFT_COLORS = { bg: '#fff7ed', border: '#f97316', text: '#c2410c', badge: '#f97316' };
 const RIGHT_COLORS = { bg: '#fff1f2', border: '#fb7185', text: '#be185d', badge: '#fb7185' };
 
-export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts, onConfirm, onBack }: LineupScreenProps) {
+export function LineupScreen({ players, mode, playerPlayCounts, onConfirm, onBack }: LineupScreenProps) {
   const perTeam = mode === 'double' ? 2 : 1;
   const maxAssigned = perTeam * 2;
 
   const [assignedOrder, setAssignedOrder] = useState<string[]>([]);
-  const [sideSwapped, setSideSwapped] = useState(initialTeamASide === 'right');
   const [firstServerName, setFirstServerName] = useState<string | null>(null);
   const [isRandomizing, setIsRandomizing] = useState(false);
   const [animatedServer, setAnimatedServer] = useState<string | null>(null);
@@ -51,9 +49,8 @@ export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts
   const rightAssigned = assignedOrder.slice(perTeam, maxAssigned);
   const allAssigned = [...leftAssigned, ...rightAssigned];
 
-  // Logical team A is on the left side by default; swap reverses which side is "A".
-  const teamANames = sideSwapped ? rightAssigned : leftAssigned;
-  const teamBNames = sideSwapped ? leftAssigned : rightAssigned;
+  const teamANames = leftAssigned;
+  const teamBNames = rightAssigned;
 
   useEffect(() => {
     if (firstServerName && !allAssigned.includes(firstServerName)) {
@@ -85,7 +82,7 @@ export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts
       Animated.timing(leftCardAnim, { toValue: w, duration: 300, useNativeDriver: true }),
       Animated.timing(rightCardAnim, { toValue: -w, duration: 300, useNativeDriver: true }),
     ]).start(() => {
-      setSideSwapped((v) => !v);
+      setAssignedOrder(prev => [...prev.slice(perTeam), ...prev.slice(0, perTeam)]);
       leftCardAnim.setValue(0);
       rightCardAnim.setValue(0);
       setIsSwapping(false);
@@ -97,12 +94,12 @@ export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts
     setIsRandomizing(true);
     let cursor = 0;
     randInterval.current = setInterval(() => {
-      setAnimatedServer(allAssigned[cursor % allAssigned.length]);
+      setAnimatedServer(serverCandidates[cursor % serverCandidates.length]);
       cursor++;
     }, 90);
     randTimeout.current = setTimeout(() => {
       if (randInterval.current) clearInterval(randInterval.current);
-      const winner = allAssigned[Math.floor(Math.random() * allAssigned.length)];
+      const winner = serverCandidates[Math.floor(Math.random() * serverCandidates.length)];
       setAnimatedServer(winner);
       setFirstServerName(winner);
       setIsRandomizing(false);
@@ -116,14 +113,12 @@ export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts
       teamANames,
       teamBNames,
       firstServerName,
-      teamASide: sideSwapped ? 'right' : 'left',
+      teamASide: 'left',
     });
   }
 
   const effectiveServer = animatedServer ?? firstServerName;
   const canConfirm = isFull && Boolean(firstServerName);
-
-  const slotHint = !isFull ? `Pilih ${maxAssigned - assignedOrder.length} pemain lagi` : null;
 
   // Returns which side ('left' | 'right' | null) this player is on.
   function getPlayerSide(name: string): 'left' | 'right' | null {
@@ -132,13 +127,12 @@ export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts
     return idx < perTeam ? 'left' : 'right';
   }
 
-  const leftLabel = sideSwapped ? 'Tim B' : 'Tim A';
-  const rightLabel = sideSwapped ? 'Tim A' : 'Tim B';
   const sortedPlayers = [...players].sort((a, b) => {
     const diff = (playerPlayCounts[a] ?? 0) - (playerPlayCounts[b] ?? 0);
     if (diff !== 0) return diff;
     return a.localeCompare(b);
   });
+  const serverCandidates = sortedPlayers.filter(name => assignedOrder.includes(name));
 
   return (
     <DecorativeBackdrop>
@@ -146,15 +140,13 @@ export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts
         <StatusBar style="dark" />
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <Card tone="accent" style={styles.heroCard}>
-            <Text style={styles.heroEyebrow}>PoinYuk</Text>
-            <Text style={styles.heroTitle}>Pilih Pemain</Text>
+            <Text style={styles.heroTitle}>PoinYuk</Text>
           </Card>
 
           {/* All players pool */}
           <Card>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Semua Pemain</Text>
-              {slotHint && <Text style={styles.slotHint}>{slotHint}</Text>}
+              <Text style={styles.sectionTitle}>Pilih Pemain</Text>
             </View>
             <View style={styles.playerGrid}>
               {sortedPlayers.map((name) => {
@@ -185,24 +177,32 @@ export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts
             </View>
           </Card>
 
-          {/* Team slot cards side by side */}
-          <View style={styles.teamRow}>
+          {/* Side labels — static, never move */}
+          <View style={styles.labelsRow}>
+            <View style={[styles.sideLabelBox, { backgroundColor: LEFT_COLORS.bg, borderColor: LEFT_COLORS.border }]}>
+              <Text style={[styles.sideLabelText, { color: LEFT_COLORS.text }]}>KIRI</Text>
+            </View>
+            <View style={[styles.sideLabelBox, { backgroundColor: RIGHT_COLORS.bg, borderColor: RIGHT_COLORS.border }]}>
+              <Text style={[styles.sideLabelText, { color: RIGHT_COLORS.text }]}>KANAN</Text>
+            </View>
+          </View>
+
+          {/* Player name boxes — animate on swap */}
+          <View style={styles.playersRow}>
             <Animated.View
-              style={[styles.slotCardWrapper, { transform: [{ translateX: leftCardAnim }], zIndex: isSwapping ? 2 : 1 }]}
+              style={[styles.playersCardWrapper, { transform: [{ translateX: leftCardAnim }], zIndex: isSwapping ? 2 : 1 }]}
               onLayout={(e) => { cardWidthRef.current = e.nativeEvent.layout.width; }}
             >
-              <TeamSlot
-                label={leftLabel}
+              <PlayerSlot
                 players={leftAssigned}
                 emptySlots={perTeam - leftAssigned.length}
                 colors={LEFT_COLORS}
               />
             </Animated.View>
             <Animated.View
-              style={[styles.slotCardWrapper, { transform: [{ translateX: rightCardAnim }], zIndex: 1 }]}
+              style={[styles.playersCardWrapper, { transform: [{ translateX: rightCardAnim }], zIndex: 1 }]}
             >
-              <TeamSlot
-                label={rightLabel}
+              <PlayerSlot
                 players={rightAssigned}
                 emptySlots={perTeam - rightAssigned.length}
                 colors={RIGHT_COLORS}
@@ -224,7 +224,7 @@ export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts
             <Card>
               <Text style={styles.sectionTitle}>Server Pertama</Text>
               <View style={styles.serverRow}>
-                {allAssigned.map((name) => {
+                {serverCandidates.map((name) => {
                   const isSelected = effectiveServer === name;
                   return (
                     <Pressable
@@ -263,20 +263,17 @@ export function LineupScreen({ players, mode, initialTeamASide, playerPlayCounts
   );
 }
 
-function TeamSlot({
-  label,
+function PlayerSlot({
   players,
   emptySlots,
   colors,
 }: {
-  label: string;
   players: string[];
   emptySlots: number;
   colors: { bg: string; border: string; text: string };
 }) {
   return (
-    <View style={[styles.slotCard, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-      <Text style={[styles.slotCardLabel, { color: colors.text }]}>{label}</Text>
+    <View style={[styles.playerCard, { backgroundColor: colors.bg, borderColor: colors.border }]}>
       {players.map((name) => (
         <Text key={name} style={[styles.slotPlayer, { color: colors.text }]}>
           {name}
@@ -296,6 +293,7 @@ const styles = StyleSheet.create({
   container: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 32, gap: 14 },
 
   heroCard: { gap: 6, paddingVertical: 14 },
+  heroTitle: { fontSize: 28, fontWeight: '900', color: '#111827' },
   heroEyebrow: {
     fontSize: 11,
     fontWeight: '900',
@@ -303,7 +301,6 @@ const styles = StyleSheet.create({
     color: '#b45309',
     textTransform: 'uppercase',
   },
-  heroTitle: { fontSize: 26, fontWeight: '900', color: '#111827' },
   heroSub: { fontSize: 13, lineHeight: 20, color: '#4b5563' },
 
   sectionHeaderRow: {
@@ -314,8 +311,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 15, fontWeight: '900', color: '#111827' },
   sectionSub: { fontSize: 12, color: '#64748b', marginTop: 1 },
-  slotHint: { fontSize: 12, fontWeight: '700', color: '#b45309' },
-  slotHintGreen: { color: '#047857' },
 
   playerGrid: {
     flexDirection: 'row',
@@ -356,23 +351,30 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  teamRow: { flexDirection: 'row', gap: 12, overflow: 'visible' },
-  slotCardWrapper: { flex: 1 },
-  slotCard: {
+  labelsRow: { flexDirection: 'row', gap: 12 },
+  sideLabelBox: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 2,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  sideLabelText: {
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  playersRow: { flexDirection: 'row', gap: 12, overflow: 'visible' },
+  playersCardWrapper: { flex: 1 },
+  playerCard: {
     flex: 1,
     borderRadius: 14,
     borderWidth: 2,
     padding: 14,
     gap: 8,
     alignItems: 'center',
-    minHeight: 90,
-  },
-  slotCardLabel: {
-    fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 4,
+    minHeight: 70,
   },
   slotPlayer: {
     fontSize: 16,

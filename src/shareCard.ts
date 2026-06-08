@@ -3,6 +3,7 @@ type ShareCardInput = {
   title: string;
   matchup: string;
   gameScore: string;
+  setBreakdown?: string;
 };
 
 export async function pickImageDataUrlWeb(source: 'gallery' | 'camera' = 'gallery'): Promise<string | null> {
@@ -10,12 +11,18 @@ export async function pickImageDataUrlWeb(source: 'gallery' | 'camera' = 'galler
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    input.style.display = 'none';
     if (source === 'camera') {
       input.setAttribute('capture', 'environment');
     }
 
-    input.onchange = () => {
+    const cleanup = () => {
+      if (input.parentNode) input.parentNode.removeChild(input);
+    };
+
+    input.addEventListener('change', () => {
       const file = input.files?.[0];
+      cleanup();
       if (!file) {
         resolve(null);
         return;
@@ -27,8 +34,9 @@ export async function pickImageDataUrlWeb(source: 'gallery' | 'camera' = 'galler
       };
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
-    };
+    });
 
+    document.body.appendChild(input);
     input.click();
   });
 }
@@ -50,9 +58,8 @@ export async function composeShareCardDataUrlWeb(input: ShareCardInput): Promise
     drawDefaultBackground(ctx, canvas.width, canvas.height);
   }
 
-  const overlay = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  overlay.addColorStop(0, 'rgba(0, 0, 0, 0.2)');
-  overlay.addColorStop(0.5, 'rgba(0, 0, 0, 0.45)');
+  const overlay = ctx.createLinearGradient(0, canvas.height / 2, 0, canvas.height);
+  overlay.addColorStop(0, 'rgba(0, 0, 0, 0)');
   overlay.addColorStop(1, 'rgba(0, 0, 0, 0.82)');
   ctx.fillStyle = overlay;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -172,6 +179,13 @@ export async function composeShareCardDataUrlWeb(input: ShareCardInput): Promise
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 
+  if (input.setBreakdown) {
+    ctx.font = "italic 600 44px 'Trebuchet MS', Arial, sans-serif";
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.textAlign = 'center';
+    ctx.fillText(input.setBreakdown, canvas.width / 2, scoreY + 90);
+  }
+
   ctx.fillStyle = '#cbd5e1';
   ctx.font = brandFont;
   ctx.textAlign = 'center';
@@ -229,7 +243,7 @@ function drawDefaultBackground(ctx: CanvasRenderingContext2D, w: number, h: numb
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, w, h);
 
-  // Subtle badminton court lines
+  // Subtle court lines
   ctx.save();
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
   ctx.lineWidth = 4;

@@ -174,12 +174,21 @@ export default function App() {
           ? `${teamNames.B} menang`
           : '';
 
+    const hasSets = matchState.sets.A > 0 || matchState.sets.B > 0;
+    const mainScore = hasSets
+      ? `${matchState.sets.A} - ${matchState.sets.B}`
+      : `${matchState.games.A} - ${matchState.games.B}`;
+    const setBreakdown = hasSets
+      ? matchState.completedSets.map(s => `${s.A}–${s.B}`).join('  ·  ')
+      : undefined;
+
     const shareText = [
       `${teamNames.A} vs ${teamNames.B}`,
-      `Game: ${matchState.games.A} - ${matchState.games.B}`,
+      hasSets ? `Set: ${matchState.sets.A} - ${matchState.sets.B}` : `Game: ${matchState.games.A} - ${matchState.games.B}`,
+      hasSets ? `Game: ${matchState.games.A} - ${matchState.games.B}` : null,
       `Poin: ${getPointLabel(matchState, 'A')} - ${getPointLabel(matchState, 'B')}`,
       winnerText,
-    ].filter(line => line.trim()).join('\n');
+    ].filter((line): line is string => Boolean(line?.trim())).join('\n');
 
     if (Platform.OS === 'web') {
       try {
@@ -189,12 +198,13 @@ export default function App() {
           backgroundDataUrl: undefined,
           title: '',
           matchup: `${teamNames.A} vs ${teamNames.B}`,
-          gameScore: `${matchState.games.A} - ${matchState.games.B}`,
+          gameScore: mainScore,
+          setBreakdown,
         });
         setSharePreviewDataUrl(cardDataUrl);
         setSharePreviewText(shareText);
-      } catch {
-        showMessage('Gagal membuat score card. Coba lagi.');
+      } catch (err) {
+        console.error('Failed to generate share card', err);
       }
       return;
     }
@@ -202,7 +212,7 @@ export default function App() {
     try {
       await Share.share({ message: shareText });
     } catch {
-      showMessage('Share dibatalkan.');
+      // share cancelled or unavailable, no feedback needed
     }
   }
 
@@ -210,13 +220,11 @@ export default function App() {
     if (!sharePreviewDataUrl) return;
     const imageShared = await shareImageWeb(sharePreviewDataUrl, sharePreviewText);
     if (imageShared) {
-      // Close the modal after successful share
       setSharePreviewDataUrl(null);
       return;
     }
     // Fallback: download image if share API is not available
     downloadDataUrlWeb(sharePreviewDataUrl, 'poinyuk-score.png');
-    showMessage('Image downloaded.');
   }
 
   function closeSharePreview() {
@@ -230,22 +238,22 @@ export default function App() {
     setBackgroundPhotoDataUrl(dataUrl);
     // Re-generate the preview with the new background immediately.
     if (!matchState) return;
-    const winnerText =
-      matchState.winner === 'A'
-        ? `${teamNames.A} menang`
-        : matchState.winner === 'B'
-          ? `${teamNames.B} menang`
-          : '';
+    const hasSetsChange = matchState.sets.A > 0 || matchState.sets.B > 0;
     try {
       const cardDataUrl = await composeShareCardDataUrlWeb({
         backgroundDataUrl: dataUrl,
         title: '',
         matchup: `${teamNames.A} vs ${teamNames.B}`,
-        gameScore: `${matchState.games.A} - ${matchState.games.B}`,
+        gameScore: hasSetsChange
+          ? `${matchState.sets.A} - ${matchState.sets.B}`
+          : `${matchState.games.A} - ${matchState.games.B}`,
+        setBreakdown: hasSetsChange
+          ? matchState.completedSets.map(s => `${s.A}–${s.B}`).join('  ·  ')
+          : undefined,
       });
       setSharePreviewDataUrl(cardDataUrl);
-    } catch {
-      showMessage('Gagal memproses foto. Coba pilih foto lain.');
+    } catch (err) {
+      console.error('Failed to process background photo', err);
     }
   }
 
@@ -266,7 +274,6 @@ export default function App() {
     setBackgroundPhotoDataUrl(null);
     setSharePreviewDataUrl(null);
     setScreen('setup');
-    showMessage('New session started.');
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -276,7 +283,6 @@ export default function App() {
       <LineupScreen
         players={setup.players}
         mode={setup.mode}
-        initialTeamASide={teamASide}
         playerPlayCounts={playerPlayCounts}
         onConfirm={handleLineupConfirm}
         onBack={() => setScreen('setup')}

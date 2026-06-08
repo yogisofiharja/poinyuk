@@ -1,6 +1,6 @@
 # PoinYuk
 
-A web-first badminton scoring app for small clubs, built with Expo + React Native + TypeScript.
+A web-first tennis scoring app for small clubs, built with Expo + React Native + TypeScript.
 Designed for mobile browsers — large tap targets, fast session setup, instant share card.
 
 ## Run The App
@@ -67,17 +67,17 @@ Setup → Lineup → Match → Final
 
 | Screen | What happens |
 |---|---|
-| **Setup** | Enter all attending players one-by-one (Enter to submit). Pick Single or Double mode and deuce setting. `Start New Session` clears saved state. |
-| **Lineup** | Tap players in sequence to fill left/right team slots. Swap sides with animated card transition. Pick or randomise first server. Player chips are sorted by least play-count first and show compact `x` badges for players who have played before. |
-| **Match** | Side-by-side square tap cards to add points. Server highlighted with green dot. Undo is centered (with confirmation); End Match is pinned at bottom. |
-| **Final** | Winner row highlighted. Share button generates a preview card instantly (default dark-court background). Replace background from gallery or camera. `End Session` clears all data (with confirmation). |
+| **Setup** | Enter all attending players one-by-one (Enter to submit). Pick Single or Double mode and deuce setting. `Sesi Baru` clears saved state. |
+| **Lineup** | Tap players in sequence to fill KIRI/KANAN slots. `Tukar Tempat` physically swaps players between slots (KIRI/KANAN labels stay fixed; only player names animate). Pick or randomise first server — server picker order is stable across swaps. Player chips are sorted by least play-count first and show compact `x` badges. |
+| **Match** | Side-by-side tap cards to add points. SET / GAME / POIN columns in the banner. Server highlighted with green dot. Undo has no confirmation; End Match is pinned at bottom. Reaching 6 games triggers a set: set counter increments and games reset to 0-0. |
+| **Final** | TV-style scoreboard: set total + per-set game breakdown. Share button generates a preview card (set score headline when sets played, game score otherwise; per-set breakdown shown below). Replace background from gallery or camera. `Akhiri Sesi` clears all data (with confirmation). |
 
 ## Code Map
 
 | File | Purpose |
 |---|---|
 | `App.tsx` | Root orchestrator — 4-screen state machine, handlers, persistence wiring |
-| `src/scoring.ts` | Pure badminton/tennis scoring engine (no side-effects) |
+| `src/scoring.ts` | Pure tennis scoring engine (no side-effects) |
 | `src/scoring.test.ts` | Scoring unit tests |
 | `src/persistence.ts` | localStorage parse / save / load / clear with backward-compat migration |
 | `src/persistence.test.ts` | Persistence unit tests |
