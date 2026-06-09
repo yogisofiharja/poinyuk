@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StatusBar } from 'expo-status-bar';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
@@ -14,19 +14,32 @@ import {
 import { SetupForm } from '../appTypes';
 import { Button, Card, DecorativeBackdrop, palette, Pill } from './ui';
 
+type SetupView = 'landing' | 'create' | 'join';
+
 type MatchSetupProps = {
   setup: SetupForm;
+  sessionCode: string | null;
   onUpdateSetup: (updates: Partial<SetupForm>) => void;
   onStartMatch: () => void;
-  onClearSavedState: () => void;
   onJoinSession: (code: string) => void;
 };
 
-export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedState, onJoinSession }: MatchSetupProps) {
+export function MatchSetup({
+  setup,
+  sessionCode,
+  onUpdateSetup,
+  onStartMatch,
+  onJoinSession,
+}: MatchSetupProps) {
+  const [view, setView] = useState<SetupView>('landing');
   const [inputValue, setInputValue] = useState('');
+
+  // Auto-advance to form when a session code arrives (owner created session or umpire joined)
+  useEffect(() => {
+    if (sessionCode && view === 'landing') setView('create');
+  }, [sessionCode]);
   const inputRef = useRef<TextInput>(null);
   const [joinCode, setJoinCode] = useState('');
-  const [showJoin, setShowJoin] = useState(false);
 
   const requiredPlayers = setup.mode === 'double' ? 4 : 2;
   const canStart = setup.players.length >= requiredPlayers;
@@ -50,6 +63,99 @@ export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedSta
     onUpdateSetup({ players: setup.players.filter((player) => player !== name) });
   }
 
+  function handleCreatePress() {
+    setView('create');
+  }
+
+  // ── Landing ───────────────────────────────────────────────────────────────
+
+  if (view === 'landing') {
+    return (
+      <DecorativeBackdrop>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar style="dark" />
+          <ScrollView contentContainerStyle={styles.landingContainer}>
+            <Card tone="accent" style={styles.heroCard}>
+              <Text style={styles.appTitle}>PoinYuk</Text>
+            </Card>
+
+            <Card style={styles.landingCard}>
+              <Pressable style={({ pressed }) => [styles.entryButton, pressed && styles.entryButtonPressed]} onPress={handleCreatePress}>
+                <View style={styles.entryIcon}>
+                  <Ionicons name="add-circle-outline" size={28} color="#f97316" />
+                </View>
+                <View style={styles.entryText}>
+                  <Text style={styles.entryTitle}>Mulai Pertandingan</Text>
+                  <Text style={styles.entrySub}>Buat sesi dan atur pemain</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+              </Pressable>
+
+              <View style={styles.entrySeparator} />
+
+              <Pressable style={({ pressed }) => [styles.entryButton, pressed && styles.entryButtonPressed]} onPress={() => setView('join')}>
+                <View style={styles.entryIcon}>
+                  <Ionicons name="enter-outline" size={28} color="#2563eb" />
+                </View>
+                <View style={styles.entryText}>
+                  <Text style={styles.entryTitle}>Gabung Sesi</Text>
+                  <Text style={styles.entrySub}>Scan QR atau masukkan kode sesi</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+              </Pressable>
+
+            </Card>
+          </ScrollView>
+        </SafeAreaView>
+      </DecorativeBackdrop>
+    );
+  }
+
+  // ── Join ──────────────────────────────────────────────────────────────────
+
+  if (view === 'join') {
+    return (
+      <DecorativeBackdrop>
+        <SafeAreaView style={styles.safeArea}>
+          <StatusBar style="dark" />
+          <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+            <Card tone="accent" style={styles.heroCard}>
+              <Text style={styles.appTitle}>PoinYuk</Text>
+            </Card>
+
+            <Card>
+              <Text style={styles.sectionTitle}>Gabung Sesi</Text>
+              <Text style={styles.sectionSub}>Masukkan kode 5 huruf dari pemilik sesi</Text>
+              <View style={[styles.inputRow, { marginTop: 12 }]}>
+                <TextInput
+                  autoFocus
+                  style={[styles.textInput, styles.codeInput]}
+                  value={joinCode}
+                  onChangeText={(v) => setJoinCode(v.toUpperCase())}
+                  placeholder="Kode sesi..."
+                  placeholderTextColor="#9ca3af"
+                  autoCapitalize="characters"
+                  maxLength={5}
+                  onSubmitEditing={() => { if (joinCode.length === 5) onJoinSession(joinCode); }}
+                />
+                <Pressable
+                  style={({ pressed }) => [styles.addButton, { backgroundColor: '#2563eb' }, pressed && styles.addButtonPressed]}
+                  onPress={() => { if (joinCode.length === 5) onJoinSession(joinCode); }}
+                >
+                  <Ionicons name="enter-outline" size={22} color="#ffffff" />
+                </Pressable>
+              </View>
+            </Card>
+
+            <Button label="Kembali" onPress={() => setView('landing')} variant="outline" />
+          </ScrollView>
+        </SafeAreaView>
+      </DecorativeBackdrop>
+    );
+  }
+
+  // ── Create / Setup form ───────────────────────────────────────────────────
+
   return (
     <DecorativeBackdrop>
       <SafeAreaView style={styles.safeArea}>
@@ -57,6 +163,12 @@ export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedSta
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <Card tone="accent" style={styles.heroCard}>
             <Text style={styles.appTitle}>PoinYuk</Text>
+            {sessionCode && (
+              <View style={styles.sessionCodeRow}>
+                <Ionicons name="qr-code-outline" size={13} color="#b45309" />
+                <Text style={styles.sessionCodeText}>Kode sesi: {sessionCode}</Text>
+              </View>
+            )}
           </Card>
 
           <Card>
@@ -139,34 +251,6 @@ export function MatchSetup({ setup, onUpdateSetup, onStartMatch, onClearSavedSta
           </Card>
 
           <Button label="Pilih Pemain & Mulai Match" onPress={onStartMatch} size="lg" disabled={!canStart} />
-          <Button label="Sesi Baru" onPress={onClearSavedState} variant="outline" />
-
-          <Pressable onPress={() => setShowJoin(v => !v)} style={styles.joinToggle}>
-            <Text style={styles.joinToggleText}>Punya kode sesi? Gabung sebagai wasit</Text>
-          </Pressable>
-
-          {showJoin && (
-            <Card>
-              <Text style={styles.sectionTitle}>Gabung Sesi</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={[styles.textInput, styles.codeInput]}
-                  value={joinCode}
-                  onChangeText={(v) => setJoinCode(v.toUpperCase())}
-                  placeholder="Masukkan kode sesi..."
-                  placeholderTextColor="#9ca3af"
-                  autoCapitalize="characters"
-                  maxLength={5}
-                />
-                <Pressable
-                  style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-                  onPress={() => { if (joinCode.length === 5) onJoinSession(joinCode); }}
-                >
-                  <Ionicons name="enter-outline" size={22} color="#ffffff" />
-                </Pressable>
-              </View>
-            </Card>
-          )}
         </ScrollView>
       </SafeAreaView>
     </DecorativeBackdrop>
@@ -181,23 +265,64 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     gap: 14,
   },
-  heroCard: { paddingVertical: 16, gap: 8 },
-  appEyebrow: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    color: '#b45309',
-    textTransform: 'uppercase',
+  landingContainer: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 32,
+    gap: 14,
+    flexGrow: 1,
   },
+  heroCard: { paddingVertical: 16, gap: 6 },
   appTitle: {
     fontSize: 28,
     fontWeight: '900',
     color: '#111827',
   },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#4b5563',
+  sessionCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  sessionCodeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#b45309',
+    letterSpacing: 0.5,
+  },
+  landingCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  entryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    gap: 14,
+  },
+  entryButtonPressed: { backgroundColor: '#f8fafc' },
+  entryIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entryText: { flex: 1, gap: 2 },
+  entryTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#111827',
+  },
+  entrySub: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  entrySeparator: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+    marginHorizontal: 18,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -209,14 +334,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
   },
+  sectionSub: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 3,
+  },
   playerCount: {
     fontSize: 13,
     fontWeight: '800',
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: palette.mutedForeground,
-    marginTop: 1,
   },
   inputRow: {
     flexDirection: 'row',
@@ -234,6 +359,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 15,
     fontWeight: '600',
+  },
+  codeInput: {
+    letterSpacing: 2,
+    fontWeight: '900',
   },
   addButton: {
     width: 46,
@@ -261,13 +390,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
-  chipIndex: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#64748b',
-    width: 14,
-    textAlign: 'center',
-  },
   chipName: {
     fontSize: 14,
     fontWeight: '700',
@@ -275,11 +397,6 @@ const styles = StyleSheet.create({
   },
   chipRemove: {
     marginLeft: 2,
-  },
-  emptyHint: {
-    fontSize: 13,
-    color: '#9ca3af',
-    fontStyle: 'italic',
   },
   pillRow: {
     flexDirection: 'row',
@@ -309,21 +426,5 @@ const styles = StyleSheet.create({
   switchDesc: {
     fontSize: 12,
     color: palette.mutedForeground,
-  },
-  joinToggle: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  joinToggleText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#94a3b8',
-    textDecorationLine: 'underline',
-  },
-  codeInput: {
-    letterSpacing: 4,
-    fontWeight: '900',
-    fontSize: 18,
-    textTransform: 'uppercase',
   },
 });

@@ -16,10 +16,11 @@ type MatchScreenProps = {
   onAddPoint: (team: Team) => void;
   onUndo: () => void;
   onEndMatch: () => void;
+  onShowHistory: () => void;
 };
 
 export function MatchScreen(props: MatchScreenProps) {
-  const { matchState, teamNames, teamASide, hasUndo, sessionCode, onAddPoint, onUndo, onEndMatch } = props;
+  const { matchState, teamNames, teamASide, hasUndo, sessionCode, onAddPoint, onUndo, onEndMatch, onShowHistory } = props;
   const [showUmpireModal, setShowUmpireModal] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
@@ -63,7 +64,7 @@ export function MatchScreen(props: MatchScreenProps) {
             {sessionCode && (
               <Pressable onPress={() => setShowUmpireModal(true)} style={styles.umpireRow}>
                 <Ionicons name="qr-code-outline" size={14} color="#b45309" />
-                <Text style={styles.umpireCode}>Wasit: {sessionCode}</Text>
+                <Text style={styles.umpireCode}>Kode sesi: {sessionCode} — tap untuk QR</Text>
               </Pressable>
             )}
           </Card>
@@ -103,6 +104,7 @@ export function MatchScreen(props: MatchScreenProps) {
 
           <View style={styles.controlsRow}>
             <IconActionButton icon="arrow-undo" onPress={handleUndo} disabled={!hasUndo} />
+            <IconActionButton icon="time-outline" onPress={onShowHistory} />
           </View>
         </ScrollView>
 
@@ -120,8 +122,8 @@ export function MatchScreen(props: MatchScreenProps) {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setShowUmpireModal(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Bagikan ke Wasit</Text>
-            <Text style={styles.modalSub}>Minta wasit scan QR ini untuk mulai update skor</Text>
+            <Text style={styles.modalTitle}>Bagikan Kode Sesi</Text>
+            <Text style={styles.modalSub}>Scan QR atau ketik kode untuk bergabung ke sesi ini</Text>
             {qrDataUrl ? (
               <Image source={{ uri: qrDataUrl }} style={styles.qrImage} />
             ) : (
@@ -414,6 +416,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 10,
     marginBottom: 12,
   },
   bottomActionWrap: {

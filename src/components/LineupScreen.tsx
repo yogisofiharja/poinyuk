@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -19,6 +20,7 @@ type LineupScreenProps = {
   players: string[];
   mode: MatchMode;
   playerPlayCounts: Record<string, number>;
+  sessionCode?: string | null;
   onConfirm: (result: LineupResult) => void;
   onBack: () => void;
 };
@@ -26,7 +28,7 @@ type LineupScreenProps = {
 const LEFT_COLORS = { bg: '#fff7ed', border: '#f97316', text: '#c2410c', badge: '#f97316' };
 const RIGHT_COLORS = { bg: '#fff1f2', border: '#fb7185', text: '#be185d', badge: '#fb7185' };
 
-export function LineupScreen({ players, mode, playerPlayCounts, onConfirm, onBack }: LineupScreenProps) {
+export function LineupScreen({ players, mode, playerPlayCounts, sessionCode, onConfirm, onBack }: LineupScreenProps) {
   const perTeam = mode === 'double' ? 2 : 1;
   const maxAssigned = perTeam * 2;
 
@@ -141,6 +143,12 @@ export function LineupScreen({ players, mode, playerPlayCounts, onConfirm, onBac
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <Card tone="accent" style={styles.heroCard}>
             <Text style={styles.heroTitle}>PoinYuk</Text>
+            {sessionCode && (
+              <View style={styles.sessionCodeRow}>
+                <Ionicons name="qr-code-outline" size={13} color="#b45309" />
+                <Text style={styles.sessionCodeText}>Kode sesi: {sessionCode}</Text>
+              </View>
+            )}
           </Card>
 
           {/* All players pool */}
@@ -294,6 +302,8 @@ const styles = StyleSheet.create({
 
   heroCard: { gap: 6, paddingVertical: 14 },
   heroTitle: { fontSize: 28, fontWeight: '900', color: '#111827' },
+  sessionCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  sessionCodeText: { fontSize: 12, fontWeight: '700', color: '#b45309', letterSpacing: 0.5 },
   heroEyebrow: {
     fontSize: 11,
     fontWeight: '900',

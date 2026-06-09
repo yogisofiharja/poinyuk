@@ -36,6 +36,10 @@ export function parsePersistedState(raw: string | null): PersistedAppState | nul
       parsed.playerPlayCounts = {};
     }
 
+    if (!Array.isArray(parsed.matchHistory)) {
+      parsed.matchHistory = [];
+    }
+
     parsed.setup = normalizeSetup(parsed.setup as Record<string, unknown>);
 
     if (parsed.matchState && typeof parsed.matchState.deuceCount === 'undefined') {

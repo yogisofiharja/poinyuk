@@ -16,8 +16,9 @@ import {
   pickImageDataUrlWeb,
   shareImageWeb,
 } from './src/shareCard';
-import { LineupResult, PersistedAppState, SetupForm, TeamASide } from './src/appTypes';
+import { LineupResult, MatchRecord, PersistedAppState, SetupForm, TeamASide } from './src/appTypes';
 import { FinalScoreScreen } from './src/components/FinalScoreScreen';
+import { HistoryScreen } from './src/components/HistoryScreen';
 import { LineupScreen } from './src/components/LineupScreen';
 import { MatchSetup } from './src/components/MatchSetup';
 import { MatchScreen } from './src/components/MatchScreen';
@@ -36,7 +37,7 @@ import {
 } from './src/sessionSync';
 import { isFirebaseReady } from './src/firebase';
 
-type AppScreen = 'setup' | 'lineup' | 'match' | 'final';
+type AppScreen = 'setup' | 'lineup' | 'match' | 'final' | 'history';
 
 const INITIAL_SETUP: SetupForm = {
   mode: 'single',
@@ -54,12 +55,15 @@ export default function App() {
   const [sharePreviewDataUrl, setSharePreviewDataUrl] = useState<string | null>(null);
   const [sharePreviewText, setSharePreviewText] = useState('');
   const [playerPlayCounts, setPlayerPlayCounts] = useState<Record<string, number>>({});
+  const [matchHistory, setMatchHistory] = useState<MatchRecord[]>([]);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
 
   // Refs for use inside async callbacks / closures where state would be stale
   const sessionCodeRef = useRef<string | null>(null);
   const lastPushTimeRef = useRef<number>(0);
+  const lastRemoteUpdateRef = useRef<number>(0);
   const unsubscribeSessionRef = useRef<(() => void) | null>(null);
+  const historyReturnScreenRef = useRef<AppScreen>('setup');
 
   // ── Persistence ───────────────────────────────────────────────────────────
 
@@ -73,6 +77,7 @@ export default function App() {
     setHistory(restored.history);
     setBackgroundPhotoDataUrl(restored.backgroundPhotoDataUrl ?? null);
     setPlayerPlayCounts(restored.playerPlayCounts ?? {});
+    setMatchHistory(restored.matchHistory ?? []);
 
     if (restored.matchState) {
       setScreen(restored.matchState.isEnded ? 'final' : 'match');
@@ -80,8 +85,21 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    savePersistedState({ version: 1, setup, teamASide, matchState, history, backgroundPhotoDataUrl, playerPlayCounts });
-  }, [setup, teamASide, matchState, history, backgroundPhotoDataUrl, playerPlayCounts]);
+    savePersistedState({ version: 1, setup, teamASide, matchState, history, backgroundPhotoDataUrl, playerPlayCounts, matchHistory });
+  }, [setup, teamASide, matchState, history, backgroundPhotoDataUrl, playerPlayCounts, matchHistory]);
+
+  // ── Firebase session sync — push all state on any change ─────────────────
+  useEffect(() => {
+    const code = sessionCodeRef.current;
+    if (!code) return;
+    // Skip if this render was caused by a remote update (prevent echo)
+    if (Date.now() - lastRemoteUpdateRef.current < 400) return;
+    const now = Date.now();
+    lastPushTimeRef.current = now;
+    pushSessionState(code, {
+      setup, matchState, history, teamASide, playerPlayCounts, updatedAt: now,
+    });
+  }, [setup, matchState, history, teamASide, playerPlayCounts]);
 
   // ── Session join via URL param ─────────────────────────────────────────────
 
@@ -94,33 +112,38 @@ export default function App() {
 
   // ── Session sync helpers ──────────────────────────────────────────────────
 
-  function pushToSession(ms: MatchState | null, hist: MatchState[], side: TeamASide) {
-    const code = sessionCodeRef.current;
-    if (!code) return;
-    const now = Date.now();
-    lastPushTimeRef.current = now;
-    pushSessionState(code, { matchState: ms, history: hist, teamASide: side, updatedAt: now });
+  function applyRemotePayload(payload: SessionPayload) {
+    // Ignore our own echoes
+    if (Math.abs(payload.updatedAt - lastPushTimeRef.current) < 1000) return;
+    lastRemoteUpdateRef.current = Date.now();
+    setSetup(payload.setup ?? INITIAL_SETUP);
+    setMatchState(payload.matchState ?? null);
+    setHistory(payload.history ?? []);
+    setTeamASide(payload.teamASide ?? 'left');
+    setPlayerPlayCounts(payload.playerPlayCounts ?? {});
+    // Navigate based on match state so each device can independently move through
+    // setup/lineup, but both land on match/final when a match is active or over.
+    if (payload.matchState?.isEnded) {
+      setScreen('final');
+    } else if (payload.matchState) {
+      setScreen('match');
+    }
+    // No matchState → stay on the device's current screen (setup or lineup)
+  }
+
+  function startSessionSubscription(code: string) {
+    if (unsubscribeSessionRef.current) unsubscribeSessionRef.current();
+    const unsub = subscribeToSession(code, (payload: SessionPayload | null) => {
+      if (payload) applyRemotePayload(payload);
+    });
+    unsubscribeSessionRef.current = unsub;
   }
 
   function joinExistingSession(code: string) {
     if (!isFirebaseReady) return;
     sessionCodeRef.current = code;
     setSessionCode(code);
-
-    const unsub = subscribeToSession(code, (payload: SessionPayload | null) => {
-      if (!payload) return;
-      // Ignore our own echoes
-      if (Math.abs(payload.updatedAt - lastPushTimeRef.current) < 1000) return;
-
-      setMatchState(payload.matchState);
-      setHistory(payload.history ?? []);
-      setTeamASide(payload.teamASide ?? 'left');
-      if (payload.matchState) {
-        setScreen(payload.matchState.isEnded ? 'final' : 'match');
-      }
-    });
-
-    unsubscribeSessionRef.current = unsub;
+    startSessionSubscription(code);
   }
 
   function endSession() {
@@ -162,6 +185,13 @@ export default function App() {
       showMessage(`Butuh minimal ${requiredPlayers} pemain untuk mode ${setup.mode}.`);
       return;
     }
+    // Generate session code now (first time only) so joiner can scan at match screen
+    if (!sessionCodeRef.current && isFirebaseReady) {
+      const code = generateSessionCode();
+      sessionCodeRef.current = code;
+      setSessionCode(code);
+      startSessionSubscription(code);
+    }
     setScreen('lineup');
   }
 
@@ -187,31 +217,6 @@ export default function App() {
     const initialState = createInitialState(config);
     const side = lineup.teamASide;
 
-    // Generate session code if Firebase is available
-    if (isFirebaseReady) {
-      const code = generateSessionCode();
-      sessionCodeRef.current = code;
-      setSessionCode(code);
-
-      // Subscribe to session so owner receives updates from umpire
-      const unsub = subscribeToSession(code, (payload: SessionPayload | null) => {
-        if (!payload) return;
-        if (Math.abs(payload.updatedAt - lastPushTimeRef.current) < 1000) return;
-        setMatchState(payload.matchState);
-        setHistory(payload.history ?? []);
-        setTeamASide(payload.teamASide ?? 'left');
-        if (payload.matchState) {
-          setScreen(payload.matchState.isEnded ? 'final' : 'match');
-        }
-      });
-      unsubscribeSessionRef.current = unsub;
-
-      // Push initial state
-      const now = Date.now();
-      lastPushTimeRef.current = now;
-      pushSessionState(code, { matchState: initialState, history: [], teamASide: side, updatedAt: now });
-    }
-
     setTeamASide(side);
     setMatchState(initialState);
     setHistory([]);
@@ -225,12 +230,11 @@ export default function App() {
   function handleAddPoint(team: Team) {
     if (!matchState || matchState.isEnded) return;
     const next = addPoint(matchState, team);
-    const newHistory = [...history, cloneState(matchState)];
-    setHistory(newHistory);
+    setHistory((prev) => [...prev, cloneState(matchState)]);
     setMatchState(next);
-    pushToSession(next, newHistory, teamASide);
     if (next.isEnded) {
       incrementPlayCounts();
+      addToMatchHistory(next);
       setScreen('final');
     }
   }
@@ -238,21 +242,18 @@ export default function App() {
   function handleUndo() {
     if (!history.length) return;
     const previous = history[history.length - 1];
-    const newHistory = history.slice(0, -1);
-    setHistory(newHistory);
+    setHistory((prev) => prev.slice(0, -1));
     setMatchState(previous);
-    pushToSession(previous, newHistory, teamASide);
     if (!previous.isEnded) setScreen('match');
   }
 
   function handleEndMatch() {
     if (!matchState || matchState.isEnded) return;
     const ended = endMatchNow(matchState);
-    const newHistory = [...history, cloneState(matchState)];
-    setHistory(newHistory);
+    setHistory((prev) => [...prev, cloneState(matchState)]);
     setMatchState(ended);
-    pushToSession(ended, newHistory, teamASide);
     incrementPlayCounts();
+    addToMatchHistory(ended);
     setScreen('final');
   }
 
@@ -265,6 +266,23 @@ export default function App() {
       });
       return updated;
     });
+  }
+
+  function addToMatchHistory(state: MatchState) {
+    const record: MatchRecord = {
+      id: Date.now().toString(),
+      completedAt: Date.now(),
+      teams: {
+        A: state.config.players.filter((p) => p.team === 'A').map((p) => p.name),
+        B: state.config.players.filter((p) => p.team === 'B').map((p) => p.name),
+      },
+      games: state.games,
+      sets: state.sets,
+      completedSets: state.completedSets,
+      winner: state.winner,
+      mode: state.config.mode,
+    };
+    setMatchHistory((prev) => [record, ...prev].slice(0, 100));
   }
 
   // ── Final / share ─────────────────────────────────────────────────────────
@@ -382,12 +400,22 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  if (screen === 'history') {
+    return (
+      <HistoryScreen
+        matchHistory={matchHistory}
+        onBack={() => setScreen(historyReturnScreenRef.current)}
+      />
+    );
+  }
+
   if (screen === 'lineup') {
     return (
       <LineupScreen
         players={setup.players}
         mode={setup.mode}
         playerPlayCounts={playerPlayCounts}
+        sessionCode={sessionCode}
         onConfirm={handleLineupConfirm}
         onBack={() => setScreen('setup')}
       />
@@ -405,6 +433,7 @@ export default function App() {
         onAddPoint={handleAddPoint}
         onUndo={handleUndo}
         onEndMatch={handleEndMatch}
+        onShowHistory={() => { historyReturnScreenRef.current = 'match'; setScreen('history'); }}
       />
     );
   }
@@ -421,6 +450,7 @@ export default function App() {
         onChangeBackground={handleChangeBackground}
         onBackToSetup={handleBackToSetup}
         onClearSavedState={handleClearSavedState}
+        onShowHistory={() => { historyReturnScreenRef.current = 'final'; setScreen('history'); }}
       />
     );
   }
@@ -429,9 +459,9 @@ export default function App() {
   return (
     <MatchSetup
       setup={setup}
+      sessionCode={sessionCode}
       onUpdateSetup={handleUpdateSetup}
       onStartMatch={handleGoToLineup}
-      onClearSavedState={handleClearSavedState}
       onJoinSession={handleJoinSession}
     />
   );

@@ -20,6 +20,17 @@ export type TeamNames = {
   B: string;
 };
 
+export type MatchRecord = {
+  id: string;
+  completedAt: number;
+  teams: { A: string[]; B: string[] };
+  games: { A: number; B: number };
+  sets: { A: number; B: number };
+  completedSets: Array<{ A: number; B: number }>;
+  winner: 'A' | 'B' | null;
+  mode: 'single' | 'double';
+};
+
 export type PersistedAppState = {
   version: 1;
   setup: SetupForm;
@@ -28,4 +39,5 @@ export type PersistedAppState = {
   history: MatchState[];
   backgroundPhotoDataUrl: string | null;
   playerPlayCounts: Record<string, number>;
+  matchHistory?: MatchRecord[];
 };

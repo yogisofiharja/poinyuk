@@ -15,6 +15,7 @@ type FinalScoreScreenProps = {
   onChangeBackground: (source: 'gallery' | 'camera') => void;
   onBackToSetup: () => void;
   onClearSavedState: () => void;
+  onShowHistory: () => void;
 };
 
 export function FinalScoreScreen(props: FinalScoreScreenProps) {
@@ -28,6 +29,7 @@ export function FinalScoreScreen(props: FinalScoreScreenProps) {
     onChangeBackground,
     onBackToSetup,
     onClearSavedState,
+    onShowHistory,
   } = props;
 
   const winner = matchState.winner;
@@ -64,6 +66,7 @@ export function FinalScoreScreen(props: FinalScoreScreenProps) {
           </Card>
 
           <Button label="Match Baru" onPress={onBackToSetup} variant="outline" />
+          <Button label="Riwayat" onPress={onShowHistory} variant="outline" />
 
           <Pressable onPress={handleEndSession} style={styles.endSessionBtn}>
             <Text style={styles.endSessionText}>Akhiri Sesi</Text>

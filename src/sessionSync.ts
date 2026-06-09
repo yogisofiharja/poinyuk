@@ -4,9 +4,11 @@ import { TeamASide } from './appTypes';
 import { MatchState } from './scoring';
 
 export type SessionPayload = {
+  setup: import('./appTypes').SetupForm;
   matchState: MatchState | null;
   history: MatchState[];
   teamASide: TeamASide;
+  playerPlayCounts: Record<string, number>;
   updatedAt: number;
 };
 
